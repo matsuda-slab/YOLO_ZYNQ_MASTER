@@ -1,0 +1,6 @@
+src/hls/yolo_*/*_prj
+src/hls/yolo_*/*.log
+src/hls/yolo_*/tb/*.dat
+src/hls/yolo_*/tb/*.log
+3rdparty/
+ip
