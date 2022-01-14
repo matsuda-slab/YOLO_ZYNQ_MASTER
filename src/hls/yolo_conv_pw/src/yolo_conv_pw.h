@@ -21,7 +21,7 @@
 typedef struct local_weight_type
 {
 	fp_weight_type data;
-}local_weight_type;
+} local_weight_type;
 
 void yolo_conv_pw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 		           ap_uint<MAX_CH_BIT> output_ch, ap_uint<MAX_CH_BIT> input_ch,
@@ -32,12 +32,6 @@ void yolo_conv_pw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 
 fp_mid_type post_process(fp_mid_type sub0_val_output,fp_mid_type sub1_val_output,fp_mid_type sub2_val_output,fp_mid_type sub3_val_output,
 						  int input_ch_idx,fp_mid_type val_output);
-
-//void yolo_line_buffer(fp_data_type curr_data, line_buff_type *line_buff, int col_idx);
-
-//window_type slide_window(int conv_count, line_buff_type *line_buff);
-
-//fp_mid_type window_macc(window_type window, local_weight_type weight);
 
 void write_output(fp_data_type val_output,  yolo_inter_stream &out_stream);
 

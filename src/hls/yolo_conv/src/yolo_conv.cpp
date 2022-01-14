@@ -342,6 +342,7 @@ void write_output(fp_data_type val_output,  yolo_inter_stream &out_stream)
 
 void out_stream_merge(yolo_inter_stream out_stream_group[MAX_KERNEL_NUM], yolo_quad_stream &outStream, int input_ch_idx, quad_fp_side_channel curr_input, ap_uint<1> last, int output_ch, int fold_output_ch )
 {
+  /* merge とかいってるが, 32チャネルの中から4チャネルを選んでいるだけ */
 
   // kind of rotation transmission
   // for every INPUT_CHANNEL inputs, get KERNEL_NUM outputs

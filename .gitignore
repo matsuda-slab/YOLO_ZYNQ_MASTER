@@ -4,3 +4,7 @@ src/hls/yolo_*/tb/*.dat
 src/hls/yolo_*/tb/*.log
 3rdparty/
 ip
+images
+src/hls/yolo_conv_pw/tb/yaraki/
+src/hls/yolo_conv_pw/yolo_conv_pw_prj/
+src/hls/yolo_conv_pw/tb/test
