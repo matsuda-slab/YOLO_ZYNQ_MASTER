@@ -110,8 +110,10 @@ WEIGHT_LOOP_IC:
             sub1_val_output = curr_input.data.sub_data_1 * local_mem_group[kernel_idx][4*input_ch_idx+1].data;
             sub2_val_output = curr_input.data.sub_data_2 * local_mem_group[kernel_idx][4*input_ch_idx+2].data;
             sub3_val_output = curr_input.data.sub_data_3 * local_mem_group[kernel_idx][4*input_ch_idx+3].data;
-            std::cout << "curr_input[0]: " << curr_input.data.sub_data_0;
-            std::cout << ", weight[0]: " << local_mem_group[kernel_idx][4*input_ch_idx].data << std::endl;
+
+            /* DEBUG */
+            //std::cout << "curr_input[0]: " << curr_input.data.sub_data_0;
+            //std::cout << ", weight[0]: " << local_mem_group[kernel_idx][4*input_ch_idx].data << std::endl;
             // 4並列でかけ算した値の足し合せ
             // それぞれの出力チャネルごとにval_outputに入れる
             val_output[kernel_idx] = post_process(sub0_val_output, sub1_val_output, sub2_val_output, sub3_val_output,
@@ -124,6 +126,9 @@ WEIGHT_LOOP_IC:
               if(kernel_idx < output_ch)
               {
                 ap_fixed<16, 8, AP_RND_CONV, AP_SAT> output_rec = val_output[kernel_idx];    // 32bit -> 16bit
+                /* DEBUG */
+                //std::cout << "val_output(32bit)[" << kernel_idx << "]: " << val_output[kernel_idx];
+                //std::cout << ",  output_rec(16bit): " << output_rec << std::endl;
                 if(!(out_stream_group[kernel_idx].full()))
                   //write data to internal FIFO
                   // FIFOにつめるだけ

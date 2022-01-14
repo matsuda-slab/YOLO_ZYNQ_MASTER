@@ -46,10 +46,10 @@ int main()
     curr_input.dest = 0;
     
     /* DEBUG */
-    std::cout << "(input) curr_input[0]: " << curr_input.data.sub_data_0 << std::endl;
-    std::cout << "(input) curr_input[1]: " << curr_input.data.sub_data_1 << std::endl;
-    std::cout << "(input) curr_input[2]: " << curr_input.data.sub_data_2 << std::endl;
-    std::cout << "(input) curr_input[3]: " << curr_input.data.sub_data_3 << std::endl;
+    //std::cout << "(input) curr_input[0]: " << curr_input.data.sub_data_0 << std::endl;
+    //std::cout << "(input) curr_input[1]: " << curr_input.data.sub_data_1 << std::endl;
+    //std::cout << "(input) curr_input[2]: " << curr_input.data.sub_data_2 << std::endl;
+    //std::cout << "(input) curr_input[3]: " << curr_input.data.sub_data_3 << std::endl;
 
     inputStream << curr_input;
   }
@@ -80,7 +80,7 @@ int main()
     curr_input.dest = 0;
     
     /* DEBUG */
-    std::cout << "(input) curr_input[0]: " << curr_input.data.sub_data_0 << std::endl;
+    //std::cout << "(input) curr_input[0]: " << curr_input.data.sub_data_0 << std::endl;
 
     inputStream << curr_input;
   }
@@ -88,7 +88,7 @@ int main()
   //IPを呼び出す
   yolo_conv_pw_top(inputStream, outputStream, OUTPUT_CHANNEL, INPUT_CHANNEL,
       (OUTPUT_CHANNEL+3)/4, (INPUT_CHANNEL+3)/4,
-      IMG_HEIGHT, IMG_WIDTH, IMG_HEIGHT, 1);
+      IMG_HEIGHT, IMG_WIDTH);
 
 
   //出力ストリーム 
@@ -105,15 +105,19 @@ int main()
       output_data[4*(pix_idx*(OUTPUT_CHANNEL)/4+ch_idx)+2] = curr_output.data.sub_data_2;
       output_data[4*(pix_idx*(OUTPUT_CHANNEL)/4+ch_idx)+3] = curr_output.data.sub_data_3;
 
+      /* DEBUG */
+      std::cout << "(input) output_data[0]: " << output_data[4*(pix_idx*(OUTPUT_CHANNEL)/4+ch_idx)] << std::endl;
+
       if(curr_output.last==1)
         printf("%d\n",pix_idx*(OUTPUT_CHANNEL)/4+ch_idx);
     }
   }
 
+  short *ptr = (short *)&output_data[0];
   //テストベンチと結果を比較
   for(int i=0;i<OUTPUT_CHANNEL*IMG_WIDTH*IMG_HEIGHT; i++){
-    if(abs((short)(tb_output[i] * 256) - (short)output_data[i]) > 5){
-      printf("tb_output[%d]: %d, output_data[%d]: %d\n", i, (short)(tb_output[i] * 256), i, (short)output_data[i]);
+    if(abs((short)(tb_output[i] * 256) - (ptr[i])) > 5){
+      printf("tb_output[%d]: %d, output_data[%d]: %d\n", i, (short)(tb_output[i] * 256), i, ptr[i]);
       error_flag = 1;
     }
   }

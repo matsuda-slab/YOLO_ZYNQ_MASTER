@@ -27,8 +27,8 @@ void yolo_conv_pw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 		           ap_uint<MAX_CH_BIT> output_ch, ap_uint<MAX_CH_BIT> input_ch,
                ap_uint<MAX_FOLD_CH_BIT> fold_output_ch, 
                ap_uint<MAX_FOLD_CH_BIT> fold_input_ch, //ap_uint<3> kernel_dim,
-		           ap_uint<9> input_h, ap_uint<9> input_w, ap_uint<9> real_input_h,
-               ap_uint<3> fold_win_area);
+		           ap_uint<9> input_h, ap_uint<9> input_w
+               );
 
 fp_mid_type post_process(fp_mid_type sub0_val_output,fp_mid_type sub1_val_output,fp_mid_type sub2_val_output,fp_mid_type sub3_val_output,
 						  int input_ch_idx,fp_mid_type val_output);
