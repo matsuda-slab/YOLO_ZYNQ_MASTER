@@ -3,18 +3,18 @@
 //#include "weight_file.h"
 
 void yolo_conv_pw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
-    ap_uint<MAX_CH_BIT> output_ch, ap_uint<MAX_CH_BIT> input_ch, ap_uint<MAX_FOLD_CH_BIT> fold_output_ch, ap_uint<MAX_FOLD_CH_BIT> fold_input_ch, //ap_uint<3> kernel_dim,
-    ap_uint<9> input_h, ap_uint<9> input_w, ap_uint<9> real_input_h,
-    ap_uint<3> fold_win_area)
+    ap_uint<MAX_CH_BIT> output_ch, ap_uint<MAX_CH_BIT> input_ch,
+    ap_uint<MAX_FOLD_CH_BIT> fold_output_ch, 
+    ap_uint<MAX_FOLD_CH_BIT> fold_input_ch,
+    ap_uint<9> input_h, ap_uint<9> input_w
+    )
 {
 #pragma HLS INTERFACE s_axilite port=fold_input_ch bundle=CTRL_BUS
 #pragma HLS INTERFACE s_axilite port=fold_output_ch bundle=CTRL_BUS
 #pragma HLS INTERFACE s_axilite port=input_ch bundle=CTRL_BUS
 #pragma HLS INTERFACE s_axilite port=output_ch bundle=CTRL_BUS
-#pragma HLS INTERFACE s_axilite port=fold_win_area bundle=CTRL_BUS
   //#pragma HLS INTERFACE s_axilite port=kernel_dim bundle=CTRL_BUS
   //#pragma HLS INTERFACE s_axilite port=leaky bundle=CTRL_BUS
-#pragma HLS INTERFACE s_axilite port=real_input_h bundle=CTRL_BUS
 #pragma HLS INTERFACE s_axilite port=input_w bundle=CTRL_BUS
 #pragma HLS INTERFACE s_axilite port=input_h bundle=CTRL_BUS
 #pragma HLS INTERFACE s_axilite port=return bundle=CTRL_BUS
@@ -24,14 +24,6 @@ void yolo_conv_pw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
   yolo_inter_stream out_stream_group[MAX_KERNEL_NUM];   // 16bit x 32個
 #pragma HLS ARRAY_PARTITION variable=out_stream_group complete dim=1  // 16bit x 32 が分解されて 32並列
 #pragma HLS STREAM variable=out_stream_group depth=2 dim=1
-
-  /*
-     1x1畳み込みではラインバッファは不要
-     */
-  //line_buff_type line_buff_group_0[MAX_KERNEL_NUM/4];   // (416+2)x3 のラインバッファが 8チャネル分
-  //line_buff_type line_buff_group_1[MAX_KERNEL_NUM/4];
-  //line_buff_type line_buff_group_2[MAX_KERNEL_NUM/4];
-  //line_buff_type line_buff_group_3[MAX_KERNEL_NUM/4];
 
   fp_mid_type val_output[MAX_KERNEL_NUM];               // 32bit x 32個
 #pragma HLS ARRAY_PARTITION variable=val_output complete dim=1
@@ -74,17 +66,6 @@ WEIGHT_LOOP_IC:
     }
   }
 
-  //	for(int i=0;i<fold_output_ch;i++)//division 2 is not safe here!!!
-  //	{
-  //#pragma HLS LOOP_TRIPCOUNT min=4 max=4
-  //#pragma HLS PIPELINE
-  //		curr_input = inStream.read();
-  //		kernel_bias_fp[4*i] = curr_input.data.sub_data_0;
-  //		kernel_bias_fp[4*i+1] = curr_input.data.sub_data_1;
-  //		kernel_bias_fp[4*i+2] = curr_input.data.sub_data_2;
-  //		kernel_bias_fp[4*i+3] = curr_input.data.sub_data_3;
-  //	}
-
   /* 入力データを受け取って, すでに保持してある重みデータと積和演算を行う部分 */
   // 1x1畳み込みではパディングはないので, row_idx, col_idx は, input_h, input_w
   // をそのまま使う
@@ -109,21 +90,6 @@ WEIGHT_LOOP_IC:
           //stream input
           curr_input = inStream.read();
 
-
-          /* ラインバッファのシフトと, 新しいデータを入れる処理 */
-          /* 1x1 のときはラインバッファに溜める必要がない */
-          //yolo_line_buffer(curr_input.data.sub_data_0, &line_buff_group_0[input_ch_idx], col_idx);
-          //yolo_line_buffer(curr_input.data.sub_data_1, &line_buff_group_1[input_ch_idx], col_idx);
-          //yolo_line_buffer(curr_input.data.sub_data_2, &line_buff_group_2[input_ch_idx], col_idx);
-          //yolo_line_buffer(curr_input.data.sub_data_3, &line_buff_group_3[input_ch_idx], col_idx);
-
-          //window_type kernel_window_0, kernel_window_1, kernel_window_2, kernel_window_3;
-
-          // ウィンドウもいらない
-          //kernel_window_0 = slide_window(conv_col_count, &line_buff_group_0[input_ch_idx]);
-          //kernel_window_1 = slide_window(conv_col_count, &line_buff_group_1[input_ch_idx]);
-          //kernel_window_2 = slide_window(conv_col_count, &line_buff_group_2[input_ch_idx]);
-          //kernel_window_3 = slide_window(conv_col_count, &line_buff_group_3[input_ch_idx]);
           //copy data to allow parallelism
 
           // 32
