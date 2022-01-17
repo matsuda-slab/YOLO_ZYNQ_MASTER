@@ -123,7 +123,7 @@ void yolo_conv_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
         つまり, (2,2)にあたる入力が来たときからconvの計算が始まる
         (2,2)のデータのときは, conv_row_count = 0, conv_col_count = 0
         (2,3)のデータのときは, conv_row_count = 0, conv_col_count = 1
-        つまり, これらcountは, 3*3個のconv演算の最初の画素(窓の左上)の座標を表す */
+        つまり, これらcountは, 3*3個のconv演算の中央の画素の座標を表す */
 				{
 					conv_row_count = row_idx - (MAX_KERNEL_DIM-1);
 					conv_col_count = col_idx - (MAX_KERNEL_DIM-1);

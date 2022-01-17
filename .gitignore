@@ -9,3 +9,5 @@ src/hls/yolo_conv_pw/tb/yaraki/
 src/hls/yolo_conv_pw/yolo_conv_pw_prj/
 src/hls/yolo_conv_pw/tb/test
 src/hls/yolo_conv_pw/*.tar
+src/hls/yolo_conv_dw/tb/include/
+src/hls/yolo_conv_dw/tb/python_sim/tb_sample.h
