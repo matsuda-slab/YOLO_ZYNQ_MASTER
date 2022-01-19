@@ -24,19 +24,19 @@ void yolo_max_pool_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 
   quad_fp_side_channel curr_input;
 
-  for(int out_row=0;out_row<output_h;out_row++)
+  for(int out_row = 0; out_row<output_h; out_row++)
   {
 #pragma HLS LOOP_TRIPCOUNT min=208 max=208 avg=208
-    for(int row_stride=0;row_stride<stride;row_stride++)
+    for(int row_stride = 0; row_stride < stride; row_stride++)
     {
 #pragma HLS LOOP_TRIPCOUNT min=2 max=2 avg=2
-      for(int out_col=0;out_col<output_w;out_col++)
+      for(int out_col = 0; out_col < output_w; out_col++)
       {
 #pragma HLS LOOP_TRIPCOUNT min=208 max=208 avg=208
-        for(int col_stride=0;col_stride<stride;col_stride++)
+        for(int col_stride = 0; col_stride < stride; col_stride++)
         {
 #pragma HLS LOOP_TRIPCOUNT min=2 max=2 avg=2
-          for(int input_ch_idx=0;input_ch_idx<input_fold_ch;input_ch_idx++)
+          for(int input_ch_idx = 0; input_ch_idx < input_fold_ch; input_ch_idx++)
           {
 #pragma HLS PIPELINE
 #pragma HLS LOOP_TRIPCOUNT min=4 max=4 avg=4
@@ -52,7 +52,7 @@ void yolo_max_pool_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
             int  conv_count;
 
             // 最初の画素の時以外
-            if((row_idx>KERNEL_DIM-2)&&(col_idx>KERNEL_DIM-2))
+            if((row_idx > KERNEL_DIM-2) && (col_idx > KERNEL_DIM-2))
               // 入力画素のx座標 - 1
               conv_count = col_idx - (KERNEL_DIM-1);
             // 最初の画素の時
@@ -78,7 +78,6 @@ void yolo_max_pool_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
             }
 
 
-
             //line buffer for every input channel
             yolo_line_buffer(curr_input.data.sub_data_0, &line_buff_group_0[input_ch_idx], col_idx);
             yolo_line_buffer(curr_input.data.sub_data_1, &line_buff_group_1[input_ch_idx], col_idx);
@@ -86,8 +85,9 @@ void yolo_max_pool_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
             yolo_line_buffer(curr_input.data.sub_data_3, &line_buff_group_3[input_ch_idx], col_idx);
 
             // プーリングの出力にあたる画素のとき. つまり2x2ずつの右下画素にあたる画素が入ってきた時.
-            if((row_idx>KERNEL_DIM-2)&&(col_idx>KERNEL_DIM-2)&&(row_stride==stride-1)&&(col_stride==stride-1))
+            if((row_idx > KERNEL_DIM-2) && (col_idx > KERNEL_DIM-2) && (row_stride == stride-1) && (col_stride == stride-1))
             {
+              // Conv は 32並列だけど, Pool は4並列
 
               window_type window_0;
               window_type window_1;
@@ -162,12 +162,12 @@ window_type slide_window(int conv_count, line_buff_type *line_buff)
 fp_data_type window_max_pool(window_type window)
 {
   fp_data_type max = -FP_MAX;
-  for(int win_row=0; win_row < KERNEL_DIM; win_row++)
+  for(int win_row = 0; win_row < KERNEL_DIM; win_row++)
   {
-    for(int win_col=0; win_col < KERNEL_DIM; win_col++)
+    for(int win_col = 0; win_col < KERNEL_DIM; win_col++)
     {
-      fp_data_type val = window.getval(win_row,win_col);
-      if(val>max)
+      fp_data_type val = window.getval(win_row, win_col);
+      if(val > max)
         max = val;
     }
   }

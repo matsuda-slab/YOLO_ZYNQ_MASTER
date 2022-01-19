@@ -50,11 +50,13 @@ dim1:出力チャネル次元, dim2:入力チャネル次元
 WEIGHT_LOOP_OC:
   for(int k = 0; k < output_ch; k++)
   {
-#pragma HLS LOOP_TRIPCOUNT min=32 max=32
+//#pragma HLS LOOP_TRIPCOUNT min=16 max=16
+#pragma HLS LOOP_TRIPCOUNT min=16 max=32
 WEIGHT_LOOP_IC:
     for(int i = 0; i < fold_input_ch; i++)
     {
-#pragma HLS LOOP_TRIPCOUNT min=8 max=8
+//#pragma HLS LOOP_TRIPCOUNT min=3 max=3
+#pragma HLS LOOP_TRIPCOUNT min=1 max=8
 #pragma HLS PIPELINE
       curr_input = inStream.read();
       /* 1回のreadで, 4個のデータが取り込まれる */
@@ -72,14 +74,17 @@ WEIGHT_LOOP_IC:
   for(int row_idx = 0; row_idx < input_h; row_idx++)
     //extra one row to send rest data
   {
-#pragma HLS LOOP_TRIPCOUNT min=417 max=417
+//#pragma HLS LOOP_TRIPCOUNT min=417 max=417
+#pragma HLS LOOP_TRIPCOUNT min=14 max=417
     for(int col_idx = 0; col_idx < input_w; col_idx++)
     {
-#pragma HLS LOOP_TRIPCOUNT min=416 max=416
+//#pragma HLS LOOP_TRIPCOUNT min=416 max=416
+#pragma HLS LOOP_TRIPCOUNT min=13 max=416
       for(int input_ch_idx = 0; input_ch_idx < fold_input_ch; input_ch_idx++)
       {
 #pragma HLS PIPELINE
-#pragma HLS LOOP_TRIPCOUNT min=4 max=8
+//#pragma HLS LOOP_TRIPCOUNT min=1 max=1
+#pragma HLS LOOP_TRIPCOUNT min=1 max=8
         // なぜTRIPCOUNT 1?  fold_input_ch は, 4とか8にもなるのに
 
 

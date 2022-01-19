@@ -61,10 +61,12 @@ void yolo_conv_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
      「3回」は, 4個データ入れる が2回, 1個データを入れる が1回 */
 	for(int k=0; k<output_ch; k++)
 	{
-#pragma HLS LOOP_TRIPCOUNT min=16 max=16
+//#pragma HLS LOOP_TRIPCOUNT min=16 max=16
+#pragma HLS LOOP_TRIPCOUNT min=16 max=32
 		for(int i=0;i<input_ch;i++)
 		{
-#pragma HLS LOOP_TRIPCOUNT min=3 max=3
+//#pragma HLS LOOP_TRIPCOUNT min=3 max=3
+#pragma HLS LOOP_TRIPCOUNT min=3 max=32
 			for(int j=0; j<fold_win_area; j++)
 			{
 #pragma HLS PIPELINE
@@ -105,14 +107,17 @@ void yolo_conv_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 	for(int row_idx=0; row_idx < input_h+1; row_idx++)
 		//extra one row to send rest data
 	{
-#pragma HLS LOOP_TRIPCOUNT min=419 max=419
+//#pragma HLS LOOP_TRIPCOUNT min=419 max=419
+#pragma HLS LOOP_TRIPCOUNT min=16 max=419
 		for(int col_idx=0; col_idx < input_w; col_idx++)
 		{
-#pragma HLS LOOP_TRIPCOUNT min=418 max=418
+//#pragma HLS LOOP_TRIPCOUNT min=418 max=418
+#pragma HLS LOOP_TRIPCOUNT min=15 max=418
 			for(int input_ch_idx=0; input_ch_idx < fold_input_ch; input_ch_idx++)
 			{
 #pragma HLS PIPELINE
-#pragma HLS LOOP_TRIPCOUNT min=1 max=1
+//#pragma HLS LOOP_TRIPCOUNT min=1 max=1
+#pragma HLS LOOP_TRIPCOUNT min=1 max=8
 // なぜTRIPCOUNT 1?  fold_input_ch は, 4とか8にもなるのに
 
 				int conv_row_count=0,conv_col_count=0;

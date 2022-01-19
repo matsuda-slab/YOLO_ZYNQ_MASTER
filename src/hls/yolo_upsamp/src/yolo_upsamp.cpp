@@ -6,26 +6,25 @@ void yolo_upsamp_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream)
 #pragma HLS INTERFACE axis register both port=outStream
 #pragma HLS INTERFACE axis register both port=inStream
 
-  // 1行分しか保持しなくていいのに, 3行分のラインバッファを持つので無駄...
   line_buff_type line_buff_group_0[INPUT_FOLD_CH];
   line_buff_type line_buff_group_1[INPUT_FOLD_CH];
   line_buff_type line_buff_group_2[INPUT_FOLD_CH];
   line_buff_type line_buff_group_3[INPUT_FOLD_CH];
 
   quad_fp_side_channel curr_input, curr_output;
-  for(int row_idx=0;row_idx<INPUT_H;row_idx++)
+  for(int row_idx = 0; row_idx < INPUT_H; row_idx++)
   {
-    for(int row_stride=0;row_stride<STRIDE;row_stride++)
+    for(int row_stride = 0; row_stride < STRIDE; row_stride++)
     {
-      for(int col_idx=0;col_idx<INPUT_W;col_idx++)
+      for(int col_idx = 0; col_idx < INPUT_W; col_idx++)
       {
-        for(int col_stride=0;col_stride<STRIDE;col_stride++)
+        for(int col_stride = 0; col_stride < STRIDE; col_stride++)
         {
-          for(int input_ch_idx=0;input_ch_idx<INPUT_FOLD_CH;input_ch_idx++)
+          for(int input_ch_idx = 0; input_ch_idx < INPUT_FOLD_CH; input_ch_idx++)
           {
 #pragma HLS PIPELINE
-            // 4x4に広げるまえの, いわゆる種にあたる左上の画素が来た時
-            if(row_stride == 0&&col_stride==0)
+            // 2x2に広げるまえの, いわゆる種にあたる左上の画素が来た時
+            if(row_stride == 0 && col_stride == 0)
             {
 
               curr_input = inStream.read();
@@ -54,11 +53,11 @@ void yolo_upsamp_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream)
             curr_output.keep = curr_input.keep;
             curr_output.strb = curr_input.strb;
             curr_output.user = curr_input.user;
-            if(row_idx==INPUT_H-1&&row_stride==STRIDE-1&&col_idx==INPUT_W-1&&col_stride==STRIDE-1&&input_ch_idx==INPUT_FOLD_CH-1)
+            if(row_idx == INPUT_H-1 && row_stride == STRIDE-1 && col_idx == INPUT_W-1 && col_stride == STRIDE-1 && input_ch_idx == INPUT_FOLD_CH-1)
               curr_output.last = 1;
             else
               curr_output.last = 0;
-            curr_output.id = curr_input.id;
+            curr_output.id   = curr_input.id;
             curr_output.dest = curr_input.dest;
 
             // 入力ストリームを受け取るのは4回に一回だが, 出力ストリームは毎回出す

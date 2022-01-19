@@ -48,7 +48,8 @@ void yolo_conv_dw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 	//local_weight_type local_mem_group[MAX_KERNEL_NUM][MAX_INPUT_CH];  // 3x3 が 32x32個
   local_weight_type local_mem_group[MAX_KERNEL_NUM];  // depthwise は in_channel 分がいらない
 // SCRIPT_START P_mem DO NOT EDIT OR DELETE THIS LINE
-#pragma HLS ARRAY_PARTITION variable=local_mem_group block factor=8 dim=1
+//#pragma HLS ARRAY_PARTITION variable=local_mem_group block factor=8 dim=1
+#pragma HLS ARRAY_PARTITION variable=local_mem_group block factor=4 dim=1
 // SCRIPT_END P_mem DO NOT EDIT OR DELETE THIS LINE
 #pragma HLS ARRAY_PARTITION variable=local_mem_group complete dim=2         // 3x3の配列を, 9個バラバラにする (9並列?)
 
@@ -63,7 +64,8 @@ void yolo_conv_dw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
      「3回」は, 4個データ入れる が2回, 1個データを入れる が1回 */
 	for(int k = 0; k < output_ch; k++)
 	{
-#pragma HLS LOOP_TRIPCOUNT min=16 max=16
+//#pragma HLS LOOP_TRIPCOUNT min=16 max=16
+#pragma HLS LOOP_TRIPCOUNT min=16 max=32
     for(int j = 0; j < fold_win_area; j++)
     {
 #pragma HLS PIPELINE
@@ -87,31 +89,22 @@ void yolo_conv_dw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 
   }
 
-
-//	for(int i=0;i<fold_output_ch;i++)//division 2 is not safe here!!!
-//	{
-//#pragma HLS LOOP_TRIPCOUNT min=4 max=4
-//#pragma HLS PIPELINE
-//		curr_input = inStream.read();
-//		kernel_bias_fp[4*i] = curr_input.data.sub_data_0;
-//		kernel_bias_fp[4*i+1] = curr_input.data.sub_data_1;
-//		kernel_bias_fp[4*i+2] = curr_input.data.sub_data_2;
-//		kernel_bias_fp[4*i+3] = curr_input.data.sub_data_3;
-//	}
-
   /* 入力データを受け取って, すでに保持してある重みデータと積和演算を行う部分 */
   // row_idx, col_idx は, パディング領域も含めた座標
 	for(int row_idx = 0; row_idx < input_h+1; row_idx++)
 		//extra one row to send rest data
 	{
-#pragma HLS LOOP_TRIPCOUNT min=419 max=419
+//#pragma HLS LOOP_TRIPCOUNT min=419 max=419
+#pragma HLS LOOP_TRIPCOUNT min=16 max=419
 		for(int col_idx = 0; col_idx < input_w; col_idx++)
 		{
-#pragma HLS LOOP_TRIPCOUNT min=418 max=418
+//#pragma HLS LOOP_TRIPCOUNT min=418 max=418
+#pragma HLS LOOP_TRIPCOUNT min=15 max=418
 			for(int input_ch_idx = 0; input_ch_idx < fold_input_ch; input_ch_idx++)
 			{
 #pragma HLS PIPELINE
-#pragma HLS LOOP_TRIPCOUNT min=1 max=1
+//#pragma HLS LOOP_TRIPCOUNT min=1 max=1
+#pragma HLS LOOP_TRIPCOUNT min=1 max=8
 // なぜTRIPCOUNT 1?  fold_input_ch は, 4とか8にもなるのに
 
         quad_fp_side_channel curr_output;
@@ -180,12 +173,6 @@ void yolo_conv_dw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 						kernel_window_1 = slide_window(conv_col_count, &line_buff_group_1[input_ch_idx]);
 						kernel_window_2 = slide_window(conv_col_count, &line_buff_group_2[input_ch_idx]);
 						kernel_window_3 = slide_window(conv_col_count, &line_buff_group_3[input_ch_idx]);
-						//copy data to allow parallelism
-
-                                                // 32
-						//for(int kernel_idx=0; kernel_idx < MAX_KERNEL_NUM; kernel_idx++)
-            // 入力が4チャネル並列で, 入力チャネル分の畳み込みだけ並列に行うので
-            // このforはいらないはず (32並列ではなく4並列)
 
             fp_mid_type sub0_val_output;    // 32bit. 16bit同士のかけ算の結果を入れるので, 16x2=32bit必要になる
             fp_mid_type sub1_val_output;
@@ -210,23 +197,11 @@ void yolo_conv_dw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
             //  sub3_val_output = window_macc(kernel_window_3, local_mem_group[kernel_idx][4*input_ch_idx+3]);
             //}
 
-            // dwでは足し合せがいらない
-            //val_output[kernel_idx] = post_process(sub0_val_output, sub1_val_output, sub2_val_output, sub3_val_output,
-            //    input_ch_idx, val_output[kernel_idx]);
-
             //accumulate for number of input channels
-            //if(input_ch_idx == fold_input_ch-1)
-              // 入力チャネルを4チャネルずつ処理していったときの, 最後の4チャネルのときにここに入る
-            //{
-            // 最初は16チャネルだが, このifによって, 17~32チャネル分は出力されない
-            //if(kernel_idx < output_ch)
-            //{
             output_rec_0 = sub0_val_output;    // 32bit -> 16bit
             output_rec_1 = sub1_val_output;    // 32bit -> 16bit
             output_rec_2 = sub2_val_output;    // 32bit -> 16bit
             output_rec_3 = sub3_val_output;    // 32bit -> 16bit
-
-            // dw では IC と OC が同じなので，FIFOに入れて調整しなくてもいい
 
             //write data to internal FIFO
             if(!(out_stream_group[0].full())) {
@@ -234,11 +209,6 @@ void yolo_conv_dw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
               write_output(output_rec_1, out_stream_group[1]);
               write_output(output_rec_2, out_stream_group[2]);
               write_output(output_rec_3, out_stream_group[3]);
-              /* DEBUG */
-              //std::cout << "(" << row_idx << "," << col_idx << ") [input_ch_idx=" << input_ch_idx << "] sub_data_0: " << curr_input.data.sub_data_0 << std::endl;
-              //std::cout << "(" << row_idx << "," << col_idx << ") [input_ch_idx=" << input_ch_idx << "] sub_data_1: " << curr_input.data.sub_data_1 << std::endl;
-              //std::cout << "(" << row_idx << "," << col_idx << ") [input_ch_idx=" << input_ch_idx << "] sub_data_2: " << curr_input.data.sub_data_2 << std::endl;
-              //std::cout << "(" << row_idx << "," << col_idx << ") [input_ch_idx=" << input_ch_idx << "] sub_data_3: " << curr_input.data.sub_data_3 << std::endl;
             }
             //}
             //}
@@ -260,8 +230,6 @@ void yolo_conv_dw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
             last = 0;
 
           out_stream_merge(out_stream_group, outStream, input_ch_idx, curr_input, last, output_ch, fold_output_ch);
-
-          //outStream.write(curr_output);
         }
 
       }
@@ -340,9 +308,6 @@ void out_stream_merge(yolo_inter_stream out_stream_group[4], yolo_quad_stream &o
     {
       curr_output.data.sub_data_3 = 0;
     }
-
-    /* DEBUG */
-    std::cout << "curr_output[0]: " << curr_output.data.sub_data_0 << std::endl;
 
     // inputをそのままoutputにしていいのか? 遅延があるのでは?
     curr_output.keep = curr_input.keep;
