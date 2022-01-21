@@ -65,7 +65,7 @@ void yolo_conv_dw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 	for(int k = 0; k < output_ch; k++)
 	{
 //#pragma HLS LOOP_TRIPCOUNT min=16 max=16
-#pragma HLS LOOP_TRIPCOUNT min=16 max=32
+#pragma HLS LOOP_TRIPCOUNT min=32 max=32
     for(int j = 0; j < fold_win_area; j++)
     {
 #pragma HLS PIPELINE
@@ -95,16 +95,16 @@ void yolo_conv_dw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 		//extra one row to send rest data
 	{
 //#pragma HLS LOOP_TRIPCOUNT min=419 max=419
-#pragma HLS LOOP_TRIPCOUNT min=16 max=419
+#pragma HLS LOOP_TRIPCOUNT min=16 max=211
 		for(int col_idx = 0; col_idx < input_w; col_idx++)
 		{
 //#pragma HLS LOOP_TRIPCOUNT min=418 max=418
-#pragma HLS LOOP_TRIPCOUNT min=15 max=418
+#pragma HLS LOOP_TRIPCOUNT min=15 max=210
 			for(int input_ch_idx = 0; input_ch_idx < fold_input_ch; input_ch_idx++)
 			{
 #pragma HLS PIPELINE
 //#pragma HLS LOOP_TRIPCOUNT min=1 max=1
-#pragma HLS LOOP_TRIPCOUNT min=1 max=8
+#pragma HLS LOOP_TRIPCOUNT min=4 max=8
 // なぜTRIPCOUNT 1?  fold_input_ch は, 4とか8にもなるのに
 
         quad_fp_side_channel curr_output;

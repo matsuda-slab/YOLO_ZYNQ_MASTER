@@ -13,8 +13,8 @@
 // SCRIPT_END N_max DO NOT EDIT OR DELETE THIS LINE
 
 #define MAX_INPUT_CH 32
-#define MAX_LINE_BUFF_WIDTH (416+2)
-#define MAX_KERNEL_DIM 3
+//#define MAX_LINE_BUFF_WIDTH (416+2)
+//#define MAX_KERNEL_DIM 1
 
 //typedef hls::Window<3, 3, fp_data_type> window_type;
 //typedef hls::LineBuffer<3, MAX_LINE_BUFF_WIDTH, fp_data_type> line_buff_type;

@@ -28,11 +28,11 @@ void yolo_acc_top(yolo_quad_stream &inStream_a, yolo_quad_stream &inStream_b,
   // SCRIPT_END P_acc DO NOT EDIT OR DELETE THIS LINE
 
   // bias値を受け取る部分
-  for(ap_uint<MAX_FOLD_CH_BIT> i=0;i<fold_input_ch;i++)//division 2 is not safe here!!!
+  for(ap_uint<MAX_FOLD_CH_BIT> i = 0; i < fold_input_ch; i++)//division 2 is not safe here!!!
   {
 #pragma HLS LOOP_TRIPCOUNT min=4 max=4
 #pragma HLS PIPELINE
-    if(bias_en==1)
+    if(bias_en == 1)
     {
       quad_fp_side_channel curr_input;
       curr_input = inStream_b.read();
@@ -45,13 +45,13 @@ void yolo_acc_top(yolo_quad_stream &inStream_a, yolo_quad_stream &inStream_b,
 
 
 
-  for(int row_idx=0;row_idx<input_h;row_idx++)
+  for(int row_idx = 0; row_idx < input_h; row_idx++)
   {
 #pragma HLS LOOP_TRIPCOUNT min=416 max=416
-    for(int col_idx=0;col_idx<input_w;col_idx++)
+    for(int col_idx = 0;col_idx < input_w; col_idx++)
     {
 #pragma HLS LOOP_TRIPCOUNT min=416 max=416
-      for(int input_ch_idx=0;input_ch_idx<fold_input_ch;input_ch_idx++)
+      for(int input_ch_idx = 0; input_ch_idx < fold_input_ch; input_ch_idx++)
       {
 #pragma HLS LOOP_TRIPCOUNT min=4 max=4
 #pragma HLS PIPELINE
@@ -101,12 +101,12 @@ void yolo_acc_top(yolo_quad_stream &inStream_a, yolo_quad_stream &inStream_b,
 
 fp_data_type post_process_unit(fp_data_type data_in, fp_weight_type bias, ap_uint<1> bias_en, ap_uint<1> leaky)
 {
-  fp_data_type biased_output=0,activated_output=0;
+  fp_data_type biased_output = 0, activated_output = 0;
   if(bias_en)
   {
     biased_output = data_in + bias;
     // LeakyReLUの処理(0.1をかける)
-    if(leaky&&biased_output<0)
+    if(leaky && biased_output < 0)
     {
       activated_output = biased_output * (fp_data_type).1;
     }

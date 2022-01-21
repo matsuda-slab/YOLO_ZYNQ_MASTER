@@ -59,15 +59,18 @@ void yolo_conv_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
   /* 1クロックで4個のデータが local_mem_groupに格納されていき, 
      それが このレイヤの 出力チャネル x 入力チャネル x 3 回繰り返される
      「3回」は, 4個データ入れる が2回, 1個データを入れる が1回 */
-	for(int k=0; k<output_ch; k++)
+WEIGHT_OC_LOOP:
+	for(int k = 0; k < output_ch; k++)
 	{
 //#pragma HLS LOOP_TRIPCOUNT min=16 max=16
-#pragma HLS LOOP_TRIPCOUNT min=16 max=32
-		for(int i=0;i<input_ch;i++)
+#pragma HLS LOOP_TRIPCOUNT min=32 max=32
+WEIGHT_IC_LOOP:
+		for(int i = 0; i < input_ch;i++)
 		{
 //#pragma HLS LOOP_TRIPCOUNT min=3 max=3
-#pragma HLS LOOP_TRIPCOUNT min=3 max=32
-			for(int j=0; j<fold_win_area; j++)
+#pragma HLS LOOP_TRIPCOUNT min=32 max=32
+WEIGHT_FOLD_WIN_LOOP:
+			for(int j = 0; j < fold_win_area; j++)
 			{
 #pragma HLS PIPELINE
 #pragma HLS LOOP_TRIPCOUNT min=3 max=3
@@ -77,13 +80,17 @@ void yolo_conv_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
            4個ずつ処理 を2回と, 1個だけ処理 を1回する
            下のifは, 4個ずつ処理(1,2週目)なのか 1個だけ処理(3周目)なのかの判断
         */
-				local_mem_group[k][i].data[4*j] = curr_input.data.sub_data_0;
+				//local_mem_group[k][i].data[4*j] = curr_input.data.sub_data_0;
+				local_mem_group[k][i].data[j<<2] = curr_input.data.sub_data_0;
         /* MAX_KERNEL_DIM : 3 */
-				if(j!=(MAX_KERNEL_DIM*MAX_KERNEL_DIM+3)/4-1)
+				if(j != (MAX_KERNEL_DIM*MAX_KERNEL_DIM+3)/4-1)
 				{
-					local_mem_group[k][i].data[4*j+1] = curr_input.data.sub_data_1;
-					local_mem_group[k][i].data[4*j+2] = curr_input.data.sub_data_2;
-					local_mem_group[k][i].data[4*j+3] = curr_input.data.sub_data_3;
+					//local_mem_group[k][i].data[4*j+1] = curr_input.data.sub_data_1;
+					//local_mem_group[k][i].data[4*j+2] = curr_input.data.sub_data_2;
+					//local_mem_group[k][i].data[4*j+3] = curr_input.data.sub_data_3;
+					local_mem_group[k][i].data[j<<2+1] = curr_input.data.sub_data_1;
+					local_mem_group[k][i].data[j<<2+2] = curr_input.data.sub_data_2;
+					local_mem_group[k][i].data[j<<2+3] = curr_input.data.sub_data_3;
 				}
 			}
 
@@ -104,23 +111,26 @@ void yolo_conv_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 
   /* 入力データを受け取って, すでに保持してある重みデータと積和演算を行う部分 */
   // row_idx, col_idx は, パディング領域も含めた座標
-	for(int row_idx=0; row_idx < input_h+1; row_idx++)
+ROW_LOOP:
+	for(int row_idx = 0; row_idx < input_h+1; row_idx++)
 		//extra one row to send rest data
 	{
 //#pragma HLS LOOP_TRIPCOUNT min=419 max=419
-#pragma HLS LOOP_TRIPCOUNT min=16 max=419
-		for(int col_idx=0; col_idx < input_w; col_idx++)
+#pragma HLS LOOP_TRIPCOUNT min=107 max=107    // layer 3
+COL_LOOP:
+		for(int col_idx = 0; col_idx < input_w; col_idx++)
 		{
 //#pragma HLS LOOP_TRIPCOUNT min=418 max=418
-#pragma HLS LOOP_TRIPCOUNT min=15 max=418
-			for(int input_ch_idx=0; input_ch_idx < fold_input_ch; input_ch_idx++)
+#pragma HLS LOOP_TRIPCOUNT min=106 max=106
+IC_LOOP:
+			for(int input_ch_idx = 0; input_ch_idx < fold_input_ch; input_ch_idx++)
 			{
 #pragma HLS PIPELINE
 //#pragma HLS LOOP_TRIPCOUNT min=1 max=1
-#pragma HLS LOOP_TRIPCOUNT min=1 max=8
+#pragma HLS LOOP_TRIPCOUNT min=8 max=8
 // なぜTRIPCOUNT 1?  fold_input_ch は, 4とか8にもなるのに
 
-				int conv_row_count=0,conv_col_count=0;
+				int conv_row_count = 0, conv_col_count = 0;
 
 
 				if((row_idx > MAX_KERNEL_DIM-2) && (col_idx > MAX_KERNEL_DIM-2))
@@ -182,7 +192,7 @@ void yolo_conv_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 						kernel_window_3 = slide_window(conv_col_count, &line_buff_group_3[input_ch_idx]);
 						//copy data to allow parallelism
 
-                                                // 32
+KERNER_NUM_LOOP:
 						for(int kernel_idx=0; kernel_idx < MAX_KERNEL_NUM; kernel_idx++)
             // 親のループがPIPELINE指定されているので, このループは32並列にunrollされるはず
             // 入力4チャネル分に対して, 重みは32チャネル分並列に畳み込みを行う?
@@ -197,9 +207,12 @@ void yolo_conv_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 
 							//core of conv, macc
               /* kernel_window : 入力データ, local_mem_group : 重みデータ */
-							sub0_val_output = window_macc(kernel_window_0, local_mem_group[kernel_idx][4*input_ch_idx]);
-							sub1_val_output = window_macc(kernel_window_1, local_mem_group[kernel_idx][4*input_ch_idx+1]);
-							sub2_val_output = window_macc(kernel_window_2, local_mem_group[kernel_idx][4*input_ch_idx+2]);
+							//sub0_val_output = window_macc(kernel_window_0, local_mem_group[kernel_idx][4*input_ch_idx]);
+							//sub1_val_output = window_macc(kernel_window_1, local_mem_group[kernel_idx][4*input_ch_idx+1]);
+							//sub2_val_output = window_macc(kernel_window_2, local_mem_group[kernel_idx][4*input_ch_idx+2]);
+							sub0_val_output = window_macc(kernel_window_0, local_mem_group[kernel_idx][input_ch_idx<<2]);
+							sub1_val_output = window_macc(kernel_window_1, local_mem_group[kernel_idx][input_ch_idx<<2+1]);
+							sub2_val_output = window_macc(kernel_window_2, local_mem_group[kernel_idx][input_ch_idx<<2+2]);
 							if(input_ch==3)     // 最初のレイヤだけinput_ch=3
 							{
 								sub3_val_output = 0;
@@ -310,8 +323,10 @@ window_type slide_window(int conv_count, line_buff_type *line_buff)
 {
   window_type kernel_window;
 
+SLIDE_WIN_ROW_LOOP:
   for(int win_row=0; win_row < 3; win_row++)
   {
+SLIDE_WIN_COL_LOOP:
     for(int win_col=0; win_col < 3; win_col++)
     {
       fp_data_type val = (fp_data_type)line_buff->getval(win_row,win_col+conv_count);
@@ -329,8 +344,10 @@ fp_mid_type window_macc(window_type window, local_weight_type weight)
   fp_mid_type sum = 0;
   // weight の 3x3 は, array_partition で9分割されているし,
   // ここは pipeline プラグマの子なので, このfor文は完全に並列に展開される?
+MACC_WIN_ROW_LOOP:
   for(int win_row=0; win_row < 3; win_row++)
   {
+MACC_WIN_COL_LOOP:
     for(int win_col=0; win_col < 3; win_col++)
     {
       fp_data_type val_in = window.getval(win_row,win_col);
@@ -352,6 +369,7 @@ void out_stream_merge(yolo_inter_stream out_stream_group[MAX_KERNEL_NUM], yolo_q
   // kind of rotation transmission
   // for every INPUT_CHANNEL inputs, get KERNEL_NUM outputs
   // the transmission is distributed evenly for efficient pipeline
+OUTSTREAM_MERGE_LOOP:
   for(int i=0; i<STREAM_TX_SIZE; i++)     // STREAM_TX_SIZE : 6
   {
     int kernel_idx = i + input_ch_idx*STREAM_TX_SIZE;
