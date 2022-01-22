@@ -2,7 +2,7 @@
 source tcl/names.tcl
 
 # Project setting
-open_project -reset $PROJECT_NAME
+open_project $PROJECT_NAME
 set_top $TOP_MODULE
 
 # File setting

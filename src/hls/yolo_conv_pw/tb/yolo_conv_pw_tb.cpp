@@ -305,7 +305,7 @@ int main()
       output_data[4*(pix_idx*(OUTPUT_CHANNEL)/4+ch_idx)+3] = curr_output.data.sub_data_3;
 
       // DEBUG 
-      std::cout << "(input) output_data[0]: " << output_data[4*(pix_idx*(OUTPUT_CHANNEL)/4+ch_idx)] << std::endl;
+      //std::cout << "(input) output_data[0]: " << output_data[4*(pix_idx*(OUTPUT_CHANNEL)/4+ch_idx)] << std::endl;
 
       if(curr_output.last==1)
         printf("%d\n",pix_idx*(OUTPUT_CHANNEL)/4+ch_idx);

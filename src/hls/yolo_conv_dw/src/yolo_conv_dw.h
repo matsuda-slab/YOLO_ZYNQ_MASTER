@@ -35,8 +35,8 @@ window_type slide_window(int conv_count, line_buff_type *line_buff);
 
 fp_mid_type window_macc(window_type window, local_weight_type weight);
 
-void write_output(fp_data_type val_output,  yolo_inter_stream &out_stream);
+//void write_output(fp_data_type val_output,  yolo_inter_stream &out_stream);
 
-void out_stream_merge(yolo_inter_stream out_stream_group[4], yolo_quad_stream &outStream, int input_ch_idx, quad_fp_side_channel curr_input, ap_uint<1> last, int output_ch, int fold_output_ch);
+//void out_stream_merge(yolo_inter_stream out_stream_group[4], yolo_quad_stream &outStream, int input_ch_idx, quad_fp_side_channel curr_input, ap_uint<1> last, int output_ch, int fold_output_ch);
 
 #endif

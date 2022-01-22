@@ -11,7 +11,7 @@ add_files -tb $TB_FILES
 
 # Other setting
 open_solution $SOLUTION
-set_part {$PART_NAME} -tool vivado
+set_part {xc7z020clg400-1} -tool vivado
 create_clock -period $CLOCK_PIRIOD -name default
 config_export -format ip_catalog -rtl verilog
 
@@ -23,4 +23,6 @@ config_export -format ip_catalog -rtl verilog
 csim_design
 csynth_design
 cosim_design
+#cosim_design -setup -trace_level all -compiled_library_dir "/home/cad/xilinx-vivado-2018.3/libs/Xcelium_18.09.001" -tool xcelium
 export_design -rtl verilog -format ip_catalog
+exit
