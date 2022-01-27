@@ -1,6 +1,9 @@
 #include "yolo_conv_dw.h"
 //#include "weight_file.h"
 
+#define PRAGMA_SUB(x) _Pragma (#x)
+#define DO_PRAGMA(x) PRAGMA_SUB(x)
+
 void yolo_conv_dw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
     ap_uint<MAX_CH_BIT> output_ch, ap_uint<MAX_CH_BIT> input_ch, ap_uint<MAX_FOLD_CH_BIT> fold_output_ch, ap_uint<MAX_FOLD_CH_BIT> fold_input_ch, //ap_uint<3> kernel_dim,
     ap_uint<9> input_h, ap_uint<9> input_w, ap_uint<9> real_input_h,
@@ -64,8 +67,8 @@ dim1:出力チャネル次元, dim2:入力チャネル次元, dim3:3*3の次元
      「3回」は, 4個データ入れる が2回, 1個データを入れる が1回 */
   for(int k = 0; k < output_ch; k++)
   {
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=OC_TRIP max=OC_TRIP)
     //#pragma HLS LOOP_TRIPCOUNT min=16 max=16
-#pragma HLS LOOP_TRIPCOUNT min=32 max=32
     for(int j = 0; j < fold_win_area; j++)
     {
 #pragma HLS PIPELINE
@@ -94,17 +97,17 @@ dim1:出力チャネル次元, dim2:入力チャネル次元, dim3:3*3の次元
   for(int row_idx = 0; row_idx < input_h+1; row_idx++)
     //extra one row to send rest data
   {
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=ROW_TRIP max=ROW_TRIP)
     //#pragma HLS LOOP_TRIPCOUNT min=419 max=419
-#pragma HLS LOOP_TRIPCOUNT min=16 max=211
     for(int col_idx = 0; col_idx < input_w; col_idx++)
     {
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=COL_TRIP max=COL_TRIP)
       //#pragma HLS LOOP_TRIPCOUNT min=418 max=418
-#pragma HLS LOOP_TRIPCOUNT min=15 max=210
       for(int input_ch_idx = 0; input_ch_idx < fold_input_ch; input_ch_idx++)
       {
 #pragma HLS PIPELINE
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
         //#pragma HLS LOOP_TRIPCOUNT min=1 max=1
-#pragma HLS LOOP_TRIPCOUNT min=4 max=8
         // なぜTRIPCOUNT 1?  fold_input_ch は, 4とか8にもなるのに
 
         quad_fp_side_channel curr_output;
@@ -184,9 +187,13 @@ dim1:出力チャネル次元, dim2:入力チャネル次元, dim3:3*3の次元
             sub0_val_output = window_macc(kernel_window_0, local_mem_group[4*input_ch_idx]);
             sub1_val_output = window_macc(kernel_window_1, local_mem_group[4*input_ch_idx+1]);
             sub2_val_output = window_macc(kernel_window_2, local_mem_group[4*input_ch_idx+2]);
-            sub3_val_output = window_macc(kernel_window_3, local_mem_group[4*input_ch_idx+3]);
+            if(input_ch == 3) {
+              sub3_val_output = 0;
+            }
+            else {
+              sub3_val_output = window_macc(kernel_window_3, local_mem_group[4*input_ch_idx+3]);
+            }
 
-            //accumulate for number of input channels
             output_rec_0 = sub0_val_output;    // 32bit -> 16bit
             output_rec_1 = sub1_val_output;    // 32bit -> 16bit
             output_rec_2 = sub2_val_output;    // 32bit -> 16bit

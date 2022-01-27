@@ -1,6 +1,9 @@
 #include "yolo_max_pool.h"
 #include "ap_fixed.h"
 
+#define PRAGMA_SUB(x) _Pragma (#x)
+#define DO_PRAGMA(x) PRAGMA_SUB(x)
+
 void yolo_max_pool_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
     ap_uint<9> output_h, ap_uint<9> output_w,
     ap_uint<9> input_h,  ap_uint<9> input_w, ap_uint<MAX_FOLD_CH_BIT> input_fold_ch,
@@ -24,22 +27,32 @@ void yolo_max_pool_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 
   quad_fp_side_channel curr_input;
 
+OUT_ROW_LOOP:
   for(int out_row = 0; out_row<output_h; out_row++)
   {
-#pragma HLS LOOP_TRIPCOUNT min=208 max=208 avg=208
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=ROW_TRIP max=ROW_TRIP)
+//#pragma HLS LOOP_TRIPCOUNT min=208 max=208 avg=208
+ROW_STRIDE_LOOP:
     for(int row_stride = 0; row_stride < stride; row_stride++)
     {
-#pragma HLS LOOP_TRIPCOUNT min=2 max=2 avg=2
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=STRIDE_TRIP max=STRIDE_TRIP)
+//#pragma HLS LOOP_TRIPCOUNT min=2 max=2 avg=2
+OUT_COL_LOOP:
       for(int out_col = 0; out_col < output_w; out_col++)
       {
-#pragma HLS LOOP_TRIPCOUNT min=208 max=208 avg=208
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=COL_TRIP max=COL_TRIP)
+//#pragma HLS LOOP_TRIPCOUNT min=208 max=208 avg=208
+COL_STRIDE_LOOP:
         for(int col_stride = 0; col_stride < stride; col_stride++)
         {
-#pragma HLS LOOP_TRIPCOUNT min=2 max=2 avg=2
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=STRIDE_TRIP max=STRIDE_TRIP)
+//#pragma HLS LOOP_TRIPCOUNT min=2 max=2 avg=2
+IN_CH_FOLD_LOOP:
           for(int input_ch_idx = 0; input_ch_idx < input_fold_ch; input_ch_idx++)
           {
 #pragma HLS PIPELINE
-#pragma HLS LOOP_TRIPCOUNT min=4 max=4 avg=4
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
+//#pragma HLS LOOP_TRIPCOUNT min=4 max=4 avg=4
 
             // なぜインスタンス数を制限している?
             // SCRIPT_START P_pool DO NOT EDIT OR DELETE THIS LINE

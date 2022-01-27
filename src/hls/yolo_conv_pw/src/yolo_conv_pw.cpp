@@ -2,6 +2,9 @@
 #include "yolo_conv_pw.h"
 //#include "weight_file.h"
 
+#define PRAGMA_SUB(x) _Pragma (#x)
+#define DO_PRAGMA(x) PRAGMA_SUB(x)
+
 void yolo_conv_pw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
     ap_uint<MAX_CH_BIT> output_ch, ap_uint<MAX_CH_BIT> input_ch,
     ap_uint<MAX_FOLD_CH_BIT> fold_output_ch, 
@@ -28,6 +31,9 @@ void yolo_conv_pw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
   fp_mid_type val_output[MAX_KERNEL_NUM];               // 32bit x 32個
 #pragma HLS ARRAY_PARTITION variable=val_output complete dim=1
 
+  fp_mid_type val_output_mid[MAX_KERNEL_NUM];               // 32bit x 32個
+#pragma HLS ARRAY_PARTITION variable=val_output_mid complete dim=1
+
   quad_fp_side_channel curr_input;      // 入力ストリームを入れる
 
   /*
@@ -50,13 +56,13 @@ dim1:出力チャネル次元, dim2:入力チャネル次元
 WEIGHT_LOOP_OC:
   for(int k = 0; k < output_ch; k++)
   {
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=OC_TRIP max=OC_TRIP)
 //#pragma HLS LOOP_TRIPCOUNT min=16 max=16
-#pragma HLS LOOP_TRIPCOUNT min=32 max=32
-WEIGHT_LOOP_IC:
+WEIGHT_LOOP_FOLD:
     for(int i = 0; i < fold_input_ch; i++)
     {
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
 //#pragma HLS LOOP_TRIPCOUNT min=3 max=3
-#pragma HLS LOOP_TRIPCOUNT min=16 max=32
 #pragma HLS PIPELINE
       curr_input = inStream.read();
       /* 1回のreadで, 4個のデータが取り込まれる */
@@ -71,20 +77,23 @@ WEIGHT_LOOP_IC:
   /* 入力データを受け取って, すでに保持してある重みデータと積和演算を行う部分 */
   // 1x1畳み込みではパディングはないので, row_idx, col_idx は, input_h, input_w
   // をそのまま使う
+ROW_LOOP:
   for(int row_idx = 0; row_idx < input_h; row_idx++)
     //extra one row to send rest data
   {
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=ROW_TRIP max=ROW_TRIP)
 //#pragma HLS LOOP_TRIPCOUNT min=417 max=417
-#pragma HLS LOOP_TRIPCOUNT min=16 max=211
+COL_LOOP:
     for(int col_idx = 0; col_idx < input_w; col_idx++)
     {
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=COL_TRIP max=COL_TRIP)
 //#pragma HLS LOOP_TRIPCOUNT min=416 max=416
-#pragma HLS LOOP_TRIPCOUNT min=15 max=210
+FOLD_LOOP:
       for(int input_ch_idx = 0; input_ch_idx < fold_input_ch; input_ch_idx++)
       {
 #pragma HLS PIPELINE
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
 //#pragma HLS LOOP_TRIPCOUNT min=1 max=1
-#pragma HLS LOOP_TRIPCOUNT min=4 max=8
         // なぜTRIPCOUNT 1?  fold_input_ch は, 4とか8にもなるのに
 
 
@@ -114,7 +123,12 @@ WEIGHT_LOOP_IC:
             sub0_val_output = curr_input.data.sub_data_0 * local_mem_group[kernel_idx][4*input_ch_idx].data;
             sub1_val_output = curr_input.data.sub_data_1 * local_mem_group[kernel_idx][4*input_ch_idx+1].data;
             sub2_val_output = curr_input.data.sub_data_2 * local_mem_group[kernel_idx][4*input_ch_idx+2].data;
-            sub3_val_output = curr_input.data.sub_data_3 * local_mem_group[kernel_idx][4*input_ch_idx+3].data;
+            if(input_ch == 3) {
+              sub3_val_output = 0;
+            }
+            else {
+              sub3_val_output = curr_input.data.sub_data_3 * local_mem_group[kernel_idx][4*input_ch_idx+3].data;
+            }
 
             /* DEBUG */
             //std::cout << "curr_input[0]: " << curr_input.data.sub_data_0;
@@ -166,9 +180,11 @@ WEIGHT_LOOP_IC:
 
 /* 4並列に処理していた分を足し合わせる */
 // val_outputには, 4チャネル分ずつ値が積算され, 最後の入力チャネルの時に, 最大32チャネル分の積和になる
-fp_mid_type post_process(fp_mid_type sub0_val_output,fp_mid_type sub1_val_output,fp_mid_type sub2_val_output,fp_mid_type sub3_val_output,
+fp_mid_type post_process(fp_mid_type sub0_val_output, fp_mid_type sub1_val_output, fp_mid_type sub2_val_output, fp_mid_type sub3_val_output,
     int input_ch_idx, fp_mid_type val_output)
 {
+  fp_mid_type sub_add0, sub_add1, sub_add2;
+  
   //fp_data_type biased_output=0,activated_output=0;
   // 最初のチャネルのときに val_outputを初期化
   if(input_ch_idx == 0)
@@ -176,10 +192,15 @@ fp_mid_type post_process(fp_mid_type sub0_val_output,fp_mid_type sub1_val_output
     val_output = 0;
   }
 
-  val_output += sub0_val_output;
-  val_output += sub1_val_output;
-  val_output += sub2_val_output;
-  val_output += sub3_val_output;
+  sub_add0 = sub0_val_output + sub1_val_output;
+  sub_add1 = sub2_val_output + sub3_val_output;
+  sub_add2 = sub_add0 + sub_add1;
+  val_output += sub_add2;
+
+  //val_output += sub0_val_output;
+  //val_output += sub1_val_output;
+  //val_output += sub2_val_output;
+  //val_output += sub3_val_output;
 
 
   return val_output;
@@ -198,6 +219,7 @@ void out_stream_merge(yolo_inter_stream out_stream_group[MAX_KERNEL_NUM], yolo_q
   // kind of rotation transmission
   // for every INPUT_CHANNEL inputs, get KERNEL_NUM outputs
   // the transmission is distributed evenly for efficient pipeline
+STREAM_TX_LOOP:
   for(int i = 0; i < STREAM_TX_SIZE; i++)     // STREAM_TX_SIZE : 6
   {
     int kernel_idx = i + input_ch_idx*STREAM_TX_SIZE;

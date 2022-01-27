@@ -1,4 +1,7 @@
 #include "yolo_conv.h"
+
+#define PRAGMA_SUB(x) _Pragma (#x)
+#define DO_PRAGMA(x) PRAGMA_SUB(x)
 //#include "weight_file.h"
 
 void yolo_conv_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
@@ -62,13 +65,13 @@ void yolo_conv_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 WEIGHT_OC_LOOP:
 	for(int k = 0; k < output_ch; k++)
 	{
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=OC_TRIP max=OC_TRIP)
 //#pragma HLS LOOP_TRIPCOUNT min=16 max=16
-#pragma HLS LOOP_TRIPCOUNT min=32 max=32
 WEIGHT_IC_LOOP:
 		for(int i = 0; i < input_ch;i++)
 		{
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=IC_TRIP max=IC_TRIP)
 //#pragma HLS LOOP_TRIPCOUNT min=3 max=3
-#pragma HLS LOOP_TRIPCOUNT min=32 max=32
 WEIGHT_FOLD_WIN_LOOP:
 			for(int j = 0; j < fold_win_area; j++)
 			{
@@ -80,17 +83,17 @@ WEIGHT_FOLD_WIN_LOOP:
            4個ずつ処理 を2回と, 1個だけ処理 を1回する
            下のifは, 4個ずつ処理(1,2週目)なのか 1個だけ処理(3周目)なのかの判断
         */
-				//local_mem_group[k][i].data[4*j] = curr_input.data.sub_data_0;
-				local_mem_group[k][i].data[j<<2] = curr_input.data.sub_data_0;
+				local_mem_group[k][i].data[4*j] = curr_input.data.sub_data_0;
+				//local_mem_group[k][i].data[j<<2] = curr_input.data.sub_data_0;
         /* MAX_KERNEL_DIM : 3 */
 				if(j != (MAX_KERNEL_DIM*MAX_KERNEL_DIM+3)/4-1)
 				{
-					//local_mem_group[k][i].data[4*j+1] = curr_input.data.sub_data_1;
-					//local_mem_group[k][i].data[4*j+2] = curr_input.data.sub_data_2;
-					//local_mem_group[k][i].data[4*j+3] = curr_input.data.sub_data_3;
-					local_mem_group[k][i].data[j<<2+1] = curr_input.data.sub_data_1;
-					local_mem_group[k][i].data[j<<2+2] = curr_input.data.sub_data_2;
-					local_mem_group[k][i].data[j<<2+3] = curr_input.data.sub_data_3;
+					local_mem_group[k][i].data[4*j+1] = curr_input.data.sub_data_1;
+					local_mem_group[k][i].data[4*j+2] = curr_input.data.sub_data_2;
+					local_mem_group[k][i].data[4*j+3] = curr_input.data.sub_data_3;
+					//local_mem_group[k][i].data[j<<2+1] = curr_input.data.sub_data_1;
+					//local_mem_group[k][i].data[j<<2+2] = curr_input.data.sub_data_2;
+					//local_mem_group[k][i].data[j<<2+3] = curr_input.data.sub_data_3;
 				}
 			}
 
@@ -115,20 +118,19 @@ ROW_LOOP:
 	for(int row_idx = 0; row_idx < input_h+1; row_idx++)
 		//extra one row to send rest data
 	{
-//#pragma HLS LOOP_TRIPCOUNT min=419 max=419
-#pragma HLS LOOP_TRIPCOUNT min=107 max=107    // layer 3
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=ROW_TRIP max=ROW_TRIP)
+//#pragma HLS LOOP_TRIPCOUNT min=419 max=419    // layer 3
 COL_LOOP:
 		for(int col_idx = 0; col_idx < input_w; col_idx++)
 		{
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=COL_TRIP max=COL_TRIP)
 //#pragma HLS LOOP_TRIPCOUNT min=418 max=418
-#pragma HLS LOOP_TRIPCOUNT min=106 max=106
 IC_LOOP:
 			for(int input_ch_idx = 0; input_ch_idx < fold_input_ch; input_ch_idx++)
 			{
 #pragma HLS PIPELINE
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
 //#pragma HLS LOOP_TRIPCOUNT min=1 max=1
-#pragma HLS LOOP_TRIPCOUNT min=8 max=8
-// なぜTRIPCOUNT 1?  fold_input_ch は, 4とか8にもなるのに
 
 				int conv_row_count = 0, conv_col_count = 0;
 
@@ -207,12 +209,12 @@ KERNER_NUM_LOOP:
 
 							//core of conv, macc
               /* kernel_window : 入力データ, local_mem_group : 重みデータ */
-							//sub0_val_output = window_macc(kernel_window_0, local_mem_group[kernel_idx][4*input_ch_idx]);
-							//sub1_val_output = window_macc(kernel_window_1, local_mem_group[kernel_idx][4*input_ch_idx+1]);
-							//sub2_val_output = window_macc(kernel_window_2, local_mem_group[kernel_idx][4*input_ch_idx+2]);
-							sub0_val_output = window_macc(kernel_window_0, local_mem_group[kernel_idx][input_ch_idx<<2]);
-							sub1_val_output = window_macc(kernel_window_1, local_mem_group[kernel_idx][input_ch_idx<<2+1]);
-							sub2_val_output = window_macc(kernel_window_2, local_mem_group[kernel_idx][input_ch_idx<<2+2]);
+							sub0_val_output = window_macc(kernel_window_0, local_mem_group[kernel_idx][4*input_ch_idx]);
+							sub1_val_output = window_macc(kernel_window_1, local_mem_group[kernel_idx][4*input_ch_idx+1]);
+							sub2_val_output = window_macc(kernel_window_2, local_mem_group[kernel_idx][4*input_ch_idx+2]);
+							//sub0_val_output = window_macc(kernel_window_0, local_mem_group[kernel_idx][input_ch_idx<<2]);
+							//sub1_val_output = window_macc(kernel_window_1, local_mem_group[kernel_idx][input_ch_idx<<2+1]);
+							//sub2_val_output = window_macc(kernel_window_2, local_mem_group[kernel_idx][input_ch_idx<<2+2]);
 							if(input_ch==3)     // 最初のレイヤだけinput_ch=3
 							{
 								sub3_val_output = 0;

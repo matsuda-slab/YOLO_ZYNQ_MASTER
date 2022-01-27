@@ -14,10 +14,12 @@ void yolo_yolo_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 
 	for(int row_idx=0;row_idx<input_h;row_idx++)
 	{
-#pragma HLS LOOP_TRIPCOUNT min=13 max=13 avg=13
+//#pragma HLS LOOP_TRIPCOUNT min=13 max=13 avg=13
+#pragma HLS LOOP_TRIPCOUNT min=26 max=26 avg=26
 		for(int col_idx=0;col_idx<input_w;col_idx++)
 		{
-#pragma HLS LOOP_TRIPCOUNT min=13 max=13 avg=13
+//#pragma HLS LOOP_TRIPCOUNT min=13 max=13 avg=13
+#pragma HLS LOOP_TRIPCOUNT min=26 max=26 avg=26
 			for(int input_ch_idx=0;input_ch_idx<MAX_KERNEL_NUM/4;input_ch_idx++)
 			{
 // SCRIPT_START P_yolo DO NOT EDIT OR DELETE THIS LINE

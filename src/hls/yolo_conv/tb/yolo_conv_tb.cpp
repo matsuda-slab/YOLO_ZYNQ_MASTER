@@ -158,6 +158,8 @@ int main()
     short ref_data;
     fscanf(layer_output_sdk,"%hd\n",&ref_data);
 
+    printf("[%d] sdk: %hd, hls: %hd\n", pix_idx, ref_data, ptr[pix_idx]);
+
     if(abs(ptr[pix_idx]-ref_data)>64)
     {
       flag = true;

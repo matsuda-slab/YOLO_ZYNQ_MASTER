@@ -3,6 +3,7 @@ set_top yolo_conv_top
 add_files src/yolo_fp.h
 add_files src/yolo_conv.h
 add_files src/yolo_stream.h
+#add_files src/yolo_conv.cpp -cflags "-D OC_TRIP=32 -DIC_TRIP=32 -DROW_TRIP=107 -DCOL_TRIP=106 -DFOLD=8"
 add_files src/yolo_conv.cpp
 add_files -tb tb/layer_output_sdk.dat
 add_files -tb tb/weight_file.h

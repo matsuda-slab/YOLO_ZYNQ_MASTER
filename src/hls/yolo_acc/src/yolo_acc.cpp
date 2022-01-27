@@ -1,5 +1,7 @@
 #include "yolo_acc.h"
 
+#define PRAGMA_SUB(x) _Pragma (#x)
+#define DO_PRAGMA(x) PRAGMA_SUB(x)
 
 // サブチャネルに分けた分の処理を足していく
 // 例えば, 入力チャネル数が128の層なら, yolo_acc_topの処理を4回行い,
@@ -28,9 +30,11 @@ void yolo_acc_top(yolo_quad_stream &inStream_a, yolo_quad_stream &inStream_b,
   // SCRIPT_END P_acc DO NOT EDIT OR DELETE THIS LINE
 
   // bias値を受け取る部分
+BIAS_FOLD_LOOP:
   for(ap_uint<MAX_FOLD_CH_BIT> i = 0; i < fold_input_ch; i++)//division 2 is not safe here!!!
   {
-#pragma HLS LOOP_TRIPCOUNT min=4 max=4
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
+//#pragma HLS LOOP_TRIPCOUNT min=4 max=4
 #pragma HLS PIPELINE
     if(bias_en == 1)
     {
@@ -45,15 +49,21 @@ void yolo_acc_top(yolo_quad_stream &inStream_a, yolo_quad_stream &inStream_b,
 
 
 
+ROW_LOOP:
   for(int row_idx = 0; row_idx < input_h; row_idx++)
   {
-#pragma HLS LOOP_TRIPCOUNT min=416 max=416
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=ROW_TRIP max=ROW_TRIP)
+//#pragma HLS LOOP_TRIPCOUNT min=416 max=416
+COL_LOOP:
     for(int col_idx = 0;col_idx < input_w; col_idx++)
     {
-#pragma HLS LOOP_TRIPCOUNT min=416 max=416
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=COL_TRIP max=COL_TRIP)
+//#pragma HLS LOOP_TRIPCOUNT min=416 max=416
+IN_CH_FOLD_LOOP:
       for(int input_ch_idx = 0; input_ch_idx < fold_input_ch; input_ch_idx++)
       {
-#pragma HLS LOOP_TRIPCOUNT min=4 max=4
+DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
+//#pragma HLS LOOP_TRIPCOUNT min=4 max=4
 #pragma HLS PIPELINE
         quad_fp_side_channel curr_input_a, curr_input_b;
         quad_fp_side_channel curr_output;
