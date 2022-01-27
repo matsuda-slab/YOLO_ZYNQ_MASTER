@@ -12,3 +12,4 @@ src/hls/yolo_conv_*/*.tar
 src/hls/yolo_conv_dw/tb/include/
 src/hls/yolo_conv_dw/tb/python_sim/tb_sample.h
 proj
+src/tools/headers/
