@@ -14,7 +14,7 @@ and set PATH to Vivado installed directory.
 
 ### 2. Synthesize and create IP
 In this directory run `make`.
-Some minites later, core IPs for YOLO will be created automatically.
+Some minutes later, core IPs for YOLO will be created automatically.
 You will find those IPs in 'ip' directory.
 
 ### Reference
