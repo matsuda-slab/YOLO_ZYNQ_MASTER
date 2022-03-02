@@ -23,19 +23,16 @@ void yolo_upsamp_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream)
           for(int input_ch_idx = 0; input_ch_idx < INPUT_FOLD_CH; input_ch_idx++)
           {
 #pragma HLS PIPELINE
-            // 2x2に広げるまえの, いわゆる種にあたる左上の画素が来た時
             if(row_stride == 0 && col_stride == 0)
             {
 
               curr_input = inStream.read();
-              // ラインバッファをスライドさせるのではなく, 現在のx座標に当たる所に上書きする形
               line_buff_group_0[input_ch_idx].insert_top(curr_input.data.sub_data_0, col_idx);
               line_buff_group_1[input_ch_idx].insert_top(curr_input.data.sub_data_1, col_idx);
               line_buff_group_2[input_ch_idx].insert_top(curr_input.data.sub_data_2, col_idx);
               line_buff_group_3[input_ch_idx].insert_top(curr_input.data.sub_data_3, col_idx);
 
 
-              // このときは, 入力はそのまま出力でよい
               curr_output.data.sub_data_0 = curr_input.data.sub_data_0;
               curr_output.data.sub_data_1 = curr_input.data.sub_data_1;
               curr_output.data.sub_data_2 = curr_input.data.sub_data_2;
@@ -44,7 +41,6 @@ void yolo_upsamp_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream)
             }
             else
             {
-              // 入力はとらずに, 種にあたる部分をラインバッファから取り出して出力に渡す
               curr_output.data.sub_data_0 = line_buff_group_0[input_ch_idx].getval(0, col_idx);
               curr_output.data.sub_data_1 = line_buff_group_1[input_ch_idx].getval(0, col_idx);
               curr_output.data.sub_data_2 = line_buff_group_2[input_ch_idx].getval(0, col_idx);
@@ -60,7 +56,6 @@ void yolo_upsamp_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream)
             curr_output.id   = curr_input.id;
             curr_output.dest = curr_input.dest;
 
-            // 入力ストリームを受け取るのは4回に一回だが, 出力ストリームは毎回出す
             outStream.write(curr_output);
 
           }

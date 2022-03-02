@@ -1,6 +1,5 @@
 #include "../src/yolo_yolo.h"
 
-// YOLO層といっても, ロジステック回帰の関数(シグモイド関数)をかけているだけ
 void yolo_yolo_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 		           ap_uint<MAX_KERNEL_NUM> activate_en,
 				   ap_uint<5> input_h, ap_uint<5> input_w)

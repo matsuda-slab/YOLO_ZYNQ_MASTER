@@ -3,10 +3,6 @@
 #define PRAGMA_SUB(x) _Pragma (#x)
 #define DO_PRAGMA(x) PRAGMA_SUB(x)
 
-// サブチャネルに分けた分の処理を足していく
-// 例えば, 入力チャネル数が128の層なら, yolo_acc_topの処理を4回行い,
-// yolo_acc_topが呼ばれるたびに, 32チャネル分の出力, 64チャネル分の出力,
-// 96チャネル分の出力, 128チャネル分の出力(その層の畳込みの出力) が得られる
 void yolo_acc_top(yolo_quad_stream &inStream_a, yolo_quad_stream &inStream_b,
     yolo_quad_stream &outStream,
     ap_uint<9> input_h, ap_uint<9> input_w,
@@ -24,12 +20,10 @@ void yolo_acc_top(yolo_quad_stream &inStream_a, yolo_quad_stream &inStream_b,
 #pragma HLS INTERFACE axis register both port=inStream_b
 
   fp_weight_type kernel_bias_fp[MAX_KERNEL_NUM];
-  // factor=1で分割って意味ある?
   // SCRIPT_START P_acc DO NOT EDIT OR DELETE THIS LINE
 #pragma HLS ARRAY_PARTITION variable=kernel_bias_fp cyclic factor=1 dim=1
   // SCRIPT_END P_acc DO NOT EDIT OR DELETE THIS LINE
 
-  // bias値を受け取る部分
 BIAS_FOLD_LOOP:
   for(ap_uint<MAX_FOLD_CH_BIT> i = 0; i < fold_input_ch; i++)//division 2 is not safe here!!!
   {
@@ -70,17 +64,14 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
 
         fp_data_type output_acc_0, output_acc_1, output_acc_2, output_acc_3;
 
-        curr_input_a = inStream_a.read();     // たぶんいままでの積算
-        curr_input_b = inStream_b.read();     // たぶん今回の32チャネル分の畳み込み層の結果
+        curr_input_a = inStream_a.read();
+        curr_input_b = inStream_b.read();
 
-        // 処理済みのチャネル分の積算に, 今回の32チャネル分の結果を足す
         output_acc_0 = curr_input_a.data.sub_data_0 + curr_input_b.data.sub_data_0;
         output_acc_1 = curr_input_a.data.sub_data_1 + curr_input_b.data.sub_data_1;
         output_acc_2 = curr_input_a.data.sub_data_2 + curr_input_b.data.sub_data_2;
         output_acc_3 = curr_input_a.data.sub_data_3 + curr_input_b.data.sub_data_3;
 
-        // bias加算 と LeakyReLUをかける処理
-        // 32チャネルずつ毎回biasを足す? biasは, 入力チャネル数分完了したあとに1回だけ足すのでは?
         curr_output.data.sub_data_0 = post_process_unit(output_acc_0, kernel_bias_fp[4*input_ch_idx], bias_en, leaky);
         curr_output.data.sub_data_1 = post_process_unit(output_acc_1, kernel_bias_fp[4*input_ch_idx+1], bias_en, leaky);
         curr_output.data.sub_data_2 = post_process_unit(output_acc_2, kernel_bias_fp[4*input_ch_idx+2], bias_en, leaky);
@@ -91,8 +82,8 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
         curr_output.strb = curr_input_a.strb;
         curr_output.user = curr_input_a.user;
 
-        //if((input_ch_idx == MAX_KERNEL_NUM/4-1)   // つまりinput_ch_idx が 7 になった かつ 最後の画素
-        if((input_ch_idx == fold_input_ch-1)   // つまりinput_ch_idx が 最大値 になった かつ 最後の画素
+        //if((input_ch_idx == MAX_KERNEL_NUM/4-1)
+        if((input_ch_idx == fold_input_ch-1)
             &&(col_idx == input_w-1)
             &&(row_idx == input_h-1))
           curr_output.last = 1;
@@ -116,7 +107,6 @@ fp_data_type post_process_unit(fp_data_type data_in, fp_weight_type bias, ap_uin
   if(bias_en)
   {
     biased_output = data_in + bias;
-    // LeakyReLUの処理(0.1をかける)
     if(leaky && biased_output < 0)
     {
       activated_output = biased_output * (fp_data_type).1;

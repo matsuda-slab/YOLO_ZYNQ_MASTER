@@ -24,37 +24,30 @@ void yolo_conv_pw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 #pragma HLS INTERFACE axis register both port=outStream
 #pragma HLS INTERFACE axis register both port=inStream
 
-  yolo_inter_stream out_stream_group[MAX_KERNEL_NUM];   // 16bit x 32個
-#pragma HLS ARRAY_PARTITION variable=out_stream_group complete dim=1  // 16bit x 32 が分解されて 32並列
+  yolo_inter_stream out_stream_group[MAX_KERNEL_NUM];
+#pragma HLS ARRAY_PARTITION variable=out_stream_group complete dim=1
 #pragma HLS STREAM variable=out_stream_group depth=2 dim=1
 
-  fp_mid_type val_output[MAX_KERNEL_NUM];               // 32bit x 32個
+  fp_mid_type val_output[MAX_KERNEL_NUM];
 #pragma HLS ARRAY_PARTITION variable=val_output complete dim=1
 
-  fp_mid_type val_output_mid[MAX_KERNEL_NUM];               // 32bit x 32個
+  fp_mid_type val_output_mid[MAX_KERNEL_NUM];
 #pragma HLS ARRAY_PARTITION variable=val_output_mid complete dim=1
 
-  quad_fp_side_channel curr_input;      // 入力ストリームを入れる
+  quad_fp_side_channel curr_input;
 
-  /*
-     local_weight_type = float
-dim1:出力チャネル次元, dim2:入力チャネル次元
-*/ 
   local_weight_type local_mem_group[MAX_KERNEL_NUM][MAX_INPUT_CH];  // 1x1 が 32x32個
   // SCRIPT_START P_mem DO NOT EDIT OR DELETE THIS LINE
 //#pragma HLS ARRAY_PARTITION variable=local_mem_group block factor=8 dim=1
 #pragma HLS ARRAY_PARTITION variable=local_mem_group complete dim=1
 #pragma HLS ARRAY_PARTITION variable=local_mem_group block factor=4 dim=2
   // SCRIPT_END P_mem DO NOT EDIT OR DELETE THIS LINE
-  //#pragma HLS ARRAY_PARTITION variable=local_mem_group complete dim=3         // 3x3の配列を, 9個バラバラにする (9並列?)
+  //#pragma HLS ARRAY_PARTITION variable=local_mem_group complete dim=3
 
   //	fp_weight_type kernel_bias_fp[MAX_KERNEL_NUM];
   //#pragma HLS ARRAY_PARTITION variable=kernel_bias_fp block factor=4 dim=1
 
 
-
-  /* 入力ストリーム重みデータをメモリに入れる部分 */
-  /* 1回のストリームで 4カーネル分の重みが入ってくる */
 WEIGHT_LOOP_OC:
   for(int k = 0; k < output_ch; k++)
   {
@@ -67,7 +60,6 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
 //#pragma HLS LOOP_TRIPCOUNT min=3 max=3
 #pragma HLS PIPELINE
       curr_input = inStream.read();
-      /* 1回のreadで, 4個のデータが取り込まれる */
       local_mem_group[k][4*i].data   = curr_input.data.sub_data_0;
       local_mem_group[k][4*i+1].data = curr_input.data.sub_data_1;
       local_mem_group[k][4*i+2].data = curr_input.data.sub_data_2;
@@ -76,9 +68,6 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
     }
   }
 
-  /* 入力データを受け取って, すでに保持してある重みデータと積和演算を行う部分 */
-  // 1x1畳み込みではパディングはないので, row_idx, col_idx は, input_h, input_w
-  // をそのまま使う
 ROW_LOOP:
   for(int row_idx = 0; row_idx < input_h; row_idx++)
     //extra one row to send rest data
@@ -97,10 +86,7 @@ FOLD_LOOP:
 #pragma HLS PIPELINE
 DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
 //#pragma HLS LOOP_TRIPCOUNT min=1 max=1
-        // なぜTRIPCOUNT 1?  fold_input_ch は, 4とか8にもなるのに
 
-
-        /* 3x3 のときと違って, 最初のストリーム(0,0)の時から畳み込みが始まる */
 
         if(row_idx != input_h)
         {
@@ -112,18 +98,15 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
 
           // 32
           for(int kernel_idx = 0; kernel_idx < MAX_KERNEL_NUM; kernel_idx++)
-            // 親のループがPIPELINE指定されているので, このループは32並列にunrollされるはず
-            // 入力4チャネル分に対して, 重みは32チャネル分並列に畳み込みを行う?
           {
 
-            fp_mid_type sub0_val_output;    // 32bit. 16bit同士のかけ算の結果を入れるので, 16x2=32bit必要になる
+            fp_mid_type sub0_val_output;
             fp_mid_type sub1_val_output;
             fp_mid_type sub2_val_output;
             fp_mid_type sub3_val_output;
 
             //std::cout << "data[0] :" << curr_input.data.sub_data_0 << std::endl;
             //core of conv, macc
-            /* kernel_window : 入力データ, local_mem_group : 重みデータ */
             if(input_ch_idx < fold_input_ch) {
               sub0_val_output = curr_input.data.sub_data_0 * local_mem_group[kernel_idx][4*input_ch_idx].data;
               sub1_val_output = curr_input.data.sub_data_1 * local_mem_group[kernel_idx][4*input_ch_idx+1].data;
@@ -145,18 +128,13 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
             /* DEBUG */
             //std::cout << "curr_input[0]: " << curr_input.data.sub_data_0;
             //std::cout << ", weight[0]: " << local_mem_group[kernel_idx][4*input_ch_idx].data << std::endl;
-            // 4並列でかけ算した値の足し合せ
-            // それぞれの出力チャネルごとにval_outputに入れる
             val_output[kernel_idx] = post_process(sub0_val_output, sub1_val_output, sub2_val_output, sub3_val_output,
                 input_ch_idx, val_output[kernel_idx]);
 
             //accumulate for number of input channels
             //if(input_ch_idx == fold_input_ch-1)
             if(input_ch_idx == fold_input_ch-1)
-              // 入力チャネルを4チャネルずつ処理していったときの, 最後の4チャネルのときにここに入る
             {
-              // このifで，有効なval_outputだけ出力するようにしてる
-              // このifがないと，16チャネルしかカーネルがないのに，17チャネル目として意味不明な値が出力される的なことが起こる
               if(kernel_idx < output_ch)
               {
                 ap_fixed<16, 8, AP_RND_CONV, AP_SAT> output_rec = val_output[kernel_idx];    // 32bit -> 16bit
@@ -165,8 +143,6 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
                 //std::cout << ",  output_rec(16bit): " << output_rec << std::endl;
                 if(!(out_stream_group[kernel_idx].full()))
                   //write data to internal FIFO
-                  // FIFOにつめるだけ
-                  // out_stream_groupには, それぞれのカーネル(idx)ごとに, 入力32チャネル分の積和結果が入っている
                   write_output(output_rec, out_stream_group[kernel_idx]);
               }
             }
@@ -177,7 +153,6 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
         //read data from the internal FIFO, and write to the output
         //printf("%d,%d\n",row_idx,col_idx);
         ap_uint<1> last;
-        // 入力画素が最後の座標かつ, 最後の4チャネルの入力のとき last=1
         if((row_idx == input_h-1) && (col_idx == input_h-1) && (input_ch_idx == fold_input_ch-1))
           last = 1;
         else
@@ -192,15 +167,12 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
 
 }
 
-/* 4並列に処理していた分を足し合わせる */
-// val_outputには, 4チャネル分ずつ値が積算され, 最後の入力チャネルの時に, 最大32チャネル分の積和になる
 fp_mid_type post_process(fp_mid_type sub0_val_output, fp_mid_type sub1_val_output, fp_mid_type sub2_val_output, fp_mid_type sub3_val_output,
     int input_ch_idx, fp_mid_type val_output)
 {
   fp_mid_type sub_add0, sub_add1, sub_add2;
 
   //fp_data_type biased_output=0,activated_output=0;
-  // 最初のチャネルのときに val_outputを初期化
   if(input_ch_idx == 0)
   {
     val_output = 0;
@@ -252,7 +224,6 @@ void out_stream_merge(yolo_inter_stream out_stream_group[MAX_KERNEL_NUM], yolo_q
       curr_output.data.sub_data_3 = 0;
     }
 
-    // inputをそのままoutputにしていいのか? 遅延があるのでは?
     curr_output.keep = curr_input.keep;
     curr_output.strb = curr_input.strb;
     curr_output.user = curr_input.user;
@@ -262,8 +233,6 @@ void out_stream_merge(yolo_inter_stream out_stream_group[MAX_KERNEL_NUM], yolo_q
     curr_output.id = curr_input.id;
     curr_output.dest = curr_input.dest;
     outStream.write(curr_output);
-    // outStream には, 入力32チャネル分の積和結果が, 出力チャネル4チャネル分ずつ入っていく
-    // 32チャネル分 x 4
 
   }
 

@@ -31,7 +31,6 @@ int main()
 
 	static fp_data_type output_data[OUTPUT_WIDTH*OUTPUT_HEIGHT*OUTPUT_CHANNEL];
   
-  // 適当な入力をテストとして与える
 	layer_input = fopen("layer_input.dat","r");
 	layer_output_hls = fopen("layer_output_hls.dat","w");
 	layer_output_sdk = fopen("layer_output_sdk.dat","r");
@@ -44,10 +43,8 @@ int main()
     for(int i=0;i<INPUT_CHANNEL;i++)
     {
       for(int j=0;j<(KERNEL_DIM*KERNEL_DIM+3)/4;j++)
-      // for(int j = 0; j < 3; j++) と同じ
       {
 // quad_fp_side_channel = ap_axi_fp<64,2,5,6>
-// ap_axi_fp<64, > は, 16bitのデータを4個もつ型
         quad_fp_side_channel curr_input;
 
 // fp_data_type = ap_fixed<16,8>
@@ -55,7 +52,6 @@ int main()
         curr_input.data.sub_data_0 = weight_p[k++];
 
         if(j==(KERNEL_DIM*KERNEL_DIM+3)/4-1)
-        // if (j == 2)  と同じ
         {
           curr_input.data.sub_data_1 = 0;
           curr_input.data.sub_data_2 = 0;

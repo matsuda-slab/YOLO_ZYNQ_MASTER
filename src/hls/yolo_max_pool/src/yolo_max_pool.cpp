@@ -19,7 +19,7 @@ void yolo_max_pool_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 #pragma HLS INTERFACE axis register both port=outStream
 #pragma HLS INTERFACE axis register both port=inStream
 
-  line_buff_type line_buff_group_0[MAX_KERNEL_NUM/4]; // 416 x 3のラインバッファが8つ
+  line_buff_type line_buff_group_0[MAX_KERNEL_NUM/4];
   line_buff_type line_buff_group_1[MAX_KERNEL_NUM/4];
   line_buff_type line_buff_group_2[MAX_KERNEL_NUM/4];
   line_buff_type line_buff_group_3[MAX_KERNEL_NUM/4];
@@ -54,21 +54,16 @@ IN_CH_FOLD_LOOP:
 DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
 //#pragma HLS LOOP_TRIPCOUNT min=4 max=4 avg=4
 
-            // なぜインスタンス数を制限している?
             // SCRIPT_START P_pool DO NOT EDIT OR DELETE THIS LINE
 #pragma HLS ALLOCATION instances=window_max_pool limit=2 function
             // SCRIPT_END P_pool DO NOT EDIT OR DELETE THIS LINE
 
-            // row_idx, col_idx は, 入力画素の座標
             int  row_idx = out_row*stride+row_stride;
             int  col_idx = out_col*stride+col_stride;
             int  conv_count;
 
-            // 最初の画素の時以外
             if((row_idx > KERNEL_DIM-2) && (col_idx > KERNEL_DIM-2))
-              // 入力画素のx座標 - 1
               conv_count = col_idx - (KERNEL_DIM-1);
-            // 最初の画素の時
             else
               conv_count = 0;
 
@@ -79,8 +74,6 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
               //stream input
               curr_input = inStream.read();
             }
-            // row_idx が 層の画像サイズと同じになったということは, パディングが
-            // あるということ (tiny-YOLOv3では, 12層目のみこれに該当する)
             else
             {
               //padding
@@ -97,10 +90,8 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
             yolo_line_buffer(curr_input.data.sub_data_2, &line_buff_group_2[input_ch_idx], col_idx);
             yolo_line_buffer(curr_input.data.sub_data_3, &line_buff_group_3[input_ch_idx], col_idx);
 
-            // プーリングの出力にあたる画素のとき. つまり2x2ずつの右下画素にあたる画素が入ってきた時.
             if((row_idx > KERNEL_DIM-2) && (col_idx > KERNEL_DIM-2) && (row_stride == stride-1) && (col_stride == stride-1))
             {
-              // Conv は 32並列だけど, Pool は4並列
 
               window_type window_0;
               window_type window_1;
@@ -162,8 +153,6 @@ window_type slide_window(int conv_count, line_buff_type *line_buff)
   {
     for(int win_col=0; win_col < KERNEL_DIM; win_col++)
     {
-      // getval(行, 列) でその要素を取り出す
-      // conv_countを足す必要ある?
       fp_data_type val = (fp_data_type)line_buff->getval(win_row, win_col+conv_count);
       kernel_window.insert(val, win_row, win_col);
     }

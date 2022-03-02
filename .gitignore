@@ -16,8 +16,13 @@ src/hls/yolo_conv_dw/tb/include/
 src/hls/yolo_conv_dw/tb/python_sim/tb_sample.h
 src/hls/yolo_acc/tb/tb_sample.h
 src/hls/yolo_acc/tb/python_sim/tb_sample.h
-src/sdk/
-!src/sdk/yolo_sys.cpp
+src/sdk/custom_headers/
+src/sdk/hdmi/
+src/sdk/ov5640/
+src/sdk/platform/
+src/sdk/utils/
+src/sdk/visualizer.h
+src/sdk/img_converter_nnlbox.h
 src/tools/make_input_header/data/
 !src/tools/make_input_header/data/dog.jpg
 src/tools/make_weight_header/headers/

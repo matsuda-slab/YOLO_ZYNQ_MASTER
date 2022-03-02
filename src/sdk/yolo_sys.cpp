@@ -337,7 +337,6 @@ void set_yolo_max_pool(u32 output_h,u32 output_w,
     u32 input_fold_ch,
     u32 stride)
 {
-  /* convと同じように, yolo_max_pool というモジュールにパラメータを渡してる */
   XYolo_max_pool_top_Set_output_h_V(&yolo_max_pool_top,output_h);
   XYolo_max_pool_top_Set_output_w_V(&yolo_max_pool_top,output_w);
   XYolo_max_pool_top_Set_input_h_V(&yolo_max_pool_top,input_h);
@@ -412,8 +411,7 @@ typedef struct layer_group
   int input_ch;
   int input_fold_ch;
   int input_size;
-  int input_fold_factor;    // 1グループにつき何回モジュールを使い回すか
-  // fold_factor は, その層のチャネル数 / 一度に処理できる最大のチャネル数
+  int input_fold_factor;
 
   int acc_size;
 
@@ -484,18 +482,17 @@ void forward_layer_group(layer_group l)
 
   for(int i = 0; i < l.output_fold_factor; i++)
   {
-    /* たぶんPLから帰って来た出力用のバッファと, PLに渡す入力用のバッファ */
     short *acc_output_buff = (short *)calloc(l.acc_size, sizeof(short));
     short *acc_input_buff = (short *)calloc(l.acc_size, sizeof(short));
-    // 最大32チャネルのサブチャネルずつ処理する
+    /* Process sub-channel up to 32chs */
 
     if(l.conv_type == DW) {     // conv_dw
-      /* 各IPの設定 */
+      /* Set IP */
       set_yolo_conv_dw(l.output_ch, l.input_ch, l.output_fold_ch, l.input_fold_ch, l.input_height+2, l.input_width+2, l.input_height+2, 3);
       set_yolo_acc(l.input_height, l.input_width, l.output_fold_ch, l.activate_type, 1);
       set_axis_switch(0, 0, 0, 0, 0, 0, 0, 0);
 
-      /* IPの動作をスタートさせる（まだデータは送ってないので処理はしてない */
+      /* Start IP */
       XYolo_conv_dw_top_Start(&yolo_conv_dw_top);
       XYolo_acc_top_Start(&yolo_acc_top);
 
@@ -527,7 +524,7 @@ void forward_layer_group(layer_group l)
     else if (l.conv_type == PW) {                      // conv_pw
       for(int j = 0; j < l.input_fold_factor; j++)
       {
-        // 入力チャネル数分の畳み込みが完了するときなので, 後段のpoolやyolo層も機能させる
+        /* make pool or yolo layer work as convolution of the amount of num of input layer is done */
         if(j==l.input_fold_factor-1)
         {
           //set IP parameters
@@ -569,8 +566,6 @@ void forward_layer_group(layer_group l)
             XYolo_upsamp_top_Start(&yolo_upsamp_top);
           }
         }
-        // まだ入力チャネル数分すべてを処理し終えていないとき.
-        // 32チャネルずつ, 畳み込みし, それまで積算してきたチャネル分に足す
         else
         {
           set_yolo_pw_conv(l.output_ch, l.input_ch, l.output_fold_ch, l.input_fold_ch, l.input_height, l.input_width, l.input_height, 1);
@@ -581,16 +576,14 @@ void forward_layer_group(layer_group l)
         }
 
         //weight_stream
-        // キャッシュのフラッシュは, キャッシュのデータが最新で, メモリ上のデータが古い場合に, メモリの古いデータを参照してしまうことを防ぐため,
-        // キャッシュのデータをメモリに書き戻す作業. /dev/mem をオープンするとき(?) にキャッシュを無効にしていれば, これは必要ないらしい
         int w_addr = l.input_ch*l.output_ch*l.output_fold_factor*j + l.input_ch*l.output_ch*i;
         Xil_DCacheFlushRange((u32)(&l.weights[w_addr]), l.input_ch*l.output_ch*sizeof(short));
         XAxiDma_SimpleTransfer(&axiDMA_0, (u32)&(l.weights[w_addr]), l.input_ch*l.output_ch*sizeof(short), XAXIDMA_DMA_TO_DEVICE);
         while(XAxiDma_Busy(&axiDMA_0, XAXIDMA_DMA_TO_DEVICE));
-        // CacheFlushRange(address, size) : キャッシュのaddress番地からsizeバイトをフラッシュする (メモリに書き戻す)
+        // CacheFlushRange(address, size)
 
 
-        /* 最後の入力チャネルグループの場合は, bias を送る */
+        /* transfer bias if it is last channel group */
         if(j==l.input_fold_factor-1)
         {
           Xil_DCacheFlushRange((u32)(&l.biases[l.output_ch*i]), l.output_ch*sizeof(short));
@@ -603,7 +596,7 @@ void forward_layer_group(layer_group l)
           XAxiDma_SimpleTransfer(&axiDMA_1, (u32)acc_input_buff, l.acc_size*sizeof(short), XAXIDMA_DMA_TO_DEVICE);
           XAxiDma_SimpleTransfer(&axiDMA_0, (u32)&l.inputs[l.input_size*j], l.input_size*sizeof(short), XAXIDMA_DMA_TO_DEVICE);
 
-          /* PLからDMAで, 結果がPSのバッファに送られる */
+          /* DMA from PL to PS buffer */
           XAxiDma_SimpleTransfer(&axiDMA_0, (u32)(&l.outputs[l.output_size*i]), l.output_size*sizeof(short), XAXIDMA_DEVICE_TO_DMA);
           while(XAxiDma_Busy(&axiDMA_0, XAXIDMA_DEVICE_TO_DMA));
           Xil_DCacheInvalidateRange((u32)(&l.outputs[l.output_size*i]), l.output_size*sizeof(short));
@@ -626,17 +619,16 @@ void forward_layer_group(layer_group l)
           }
         }
 
-        /* 最後の入力チャネルグループでないとき */
+        /* not last channel group */
         else
         {
           Xil_DCacheFlushRange((u32)(&l.inputs[l.input_size*j]), l.input_size*sizeof(short));
           Xil_DCacheFlushRange((u32)acc_output_buff, l.acc_size*sizeof(short));
           Xil_DCacheFlushRange((u32)acc_input_buff, l.acc_size*sizeof(short));
 
-          /* PLからDMAで, 結果がPSのバッファに送られる */
-          XAxiDma_SimpleTransfer(&axiDMA_0, (u32)&l.inputs[l.input_size*j], l.input_size*sizeof(short), XAXIDMA_DMA_TO_DEVICE);   // 入力と
-          XAxiDma_SimpleTransfer(&axiDMA_1, (u32)acc_input_buff, l.acc_size*sizeof(short), XAXIDMA_DMA_TO_DEVICE);                // 今までの和を送って
-          XAxiDma_SimpleTransfer(&axiDMA_0, (u32)acc_output_buff, l.acc_size*sizeof(short), XAXIDMA_DEVICE_TO_DMA);               // 結果が返ってくる
+          XAxiDma_SimpleTransfer(&axiDMA_0, (u32)&l.inputs[l.input_size*j], l.input_size*sizeof(short), XAXIDMA_DMA_TO_DEVICE);   // current input
+          XAxiDma_SimpleTransfer(&axiDMA_1, (u32)acc_input_buff, l.acc_size*sizeof(short), XAXIDMA_DMA_TO_DEVICE);                // sum of pust
+          XAxiDma_SimpleTransfer(&axiDMA_0, (u32)acc_output_buff, l.acc_size*sizeof(short), XAXIDMA_DEVICE_TO_DMA);               // output
 
           while(XAxiDma_Busy(&axiDMA_0, XAXIDMA_DEVICE_TO_DMA));
 
@@ -646,13 +638,13 @@ void forward_layer_group(layer_group l)
         }
         mid_ptr = acc_input_buff;
 
-        /* 今回のグループの出力が次のグループの入力 */
+        /* output of this group is input of next group */
         acc_input_buff = acc_output_buff;
         acc_output_buff = mid_ptr;
         //memcpy(acc_input_buff,acc_output_buff,l.acc_size*sizeof(short));
       }
     }
-    else {      // conv_disable. post_process は maxpool のパターンしかない
+    else {      // conv_disable.
       set_yolo_max_pool(l.output_height, l.output_width, l.input_height, l.input_width, l.output_fold_ch, l.pooling_stride);
       set_axis_switch(0, 2, 0, 0, 1, l.post_process_type, l.post_process_type, 0);
 
@@ -662,7 +654,6 @@ void forward_layer_group(layer_group l)
       Xil_DCacheFlushRange((u32)(&l.outputs[l.output_size*i]), l.output_size*sizeof(short));
       XAxiDma_SimpleTransfer(&axiDMA_0, (u32)&l.inputs[l.input_size*i], l.input_size*sizeof(short), XAXIDMA_DMA_TO_DEVICE);
 
-      /* PLからDMAで, poolingの結果がPSの出力バッファに送られる */
       XAxiDma_SimpleTransfer(&axiDMA_0, (u32)(&l.outputs[l.output_size*i]), l.output_size*sizeof(short), XAXIDMA_DEVICE_TO_DMA);
       while(XAxiDma_Busy(&axiDMA_0, XAXIDMA_DEVICE_TO_DMA));
       Xil_DCacheInvalidateRange((u32)(&l.outputs[l.output_size*i]), l.output_size*sizeof(short));
@@ -689,7 +680,7 @@ int main()
   layer_group group_0_0 = make_layer_group(416,416,3,1,           // in_c  = 3
       416,416,3,1,          // out_c = 16
       LEAKY,NONE,DW,2);
-  layer_group group_0_1 = make_layer_group(416,416,4,1,           // in_c  = 3  だが, 4チャネル分の入力を渡す (3ch + dummy)
+  layer_group group_0_1 = make_layer_group(416,416,4,1,           // in_c  = 3 (3ch + dummy)
       208,208,16,1,          // out_c = 16
       LEAKY,MAX_POOL,PW,2);
   layer_group group_1_0 = make_layer_group(208,208,16,1,          // in_c  = 16
@@ -716,9 +707,9 @@ int main()
   layer_group group_4_1 = make_layer_group(26,26,32,4,            // in_c  = 128
       26,26,32,8,            // out_c = 256
       LEAKY,NONE,PW,2);
-  layer_group group_5 = make_layer_group(26,26,32,1,            // 畳み込みの足し合せはしないため, in_cループはしない. なのでin_c_factor=
+  layer_group group_5 = make_layer_group(26,26,32,1,            // don't run in_c loop as it doesn't do summation of convolution
       13,13,32,8,            // out_c = 256
-      LINEAR,MAX_POOL,NONE,2);     // pooling だけしたいため, conv_disable=1 にして Conv IP をスキップ
+      LINEAR,MAX_POOL,NONE,2);     // skip Conv IP by set conv_disable to 1 because I only want to do maxpool
   layer_group group_6_0 = make_layer_group(13,13,32,8,            // in_c  = 256
       13,13,32,8,           // out_c = 512
       LEAKY,NONE,DW,1);
@@ -731,7 +722,7 @@ int main()
   layer_group group_7_1 = make_layer_group(13,13,32,16,           // in_c  = 512
       13,13,32,32,           // out_c = 1024
       LEAKY,NONE,PW,2);
-  layer_group group_8 = make_layer_group(13,13,32,32,           // in_c  = 1024   1x1 畳み込み
+  layer_group group_8 = make_layer_group(13,13,32,32,           // in_c  = 1024   1x1 conv
       13,13,32,8,            // out_c = 256
       LEAKY,NONE,PW,2);
   layer_group group_9_0 = make_layer_group(13,13,32,8,            // in_c  = 256
@@ -740,10 +731,10 @@ int main()
   layer_group group_9_1 = make_layer_group(13,13,32,8,            // in_c  = 256
       13,13,32,16,           // out_c = 512
       LEAKY,NONE,PW,2);
-  layer_group group_10 = make_layer_group(13,13,32,16,          // in_c  = 512    1x1 畳み込み
+  layer_group group_10 = make_layer_group(13,13,32,16,          // in_c  = 512    1x1 conv
       13,13,32,8,            // out_c = 255
       LINEAR,YOLO,PW,2);
-  layer_group group_11 = make_layer_group(13,13,32,8,           // in_c  = 256    1x1 畳み込み
+  layer_group group_11 = make_layer_group(13,13,32,8,           // in_c  = 256    1x1 conv
       26,26,32,4,            // out_c = 128
       LEAKY,UPSAMPLE,PW,2);
   layer_group group_12_0 = make_layer_group(26,26,32,12,          // in_c  = 384
@@ -752,7 +743,7 @@ int main()
   layer_group group_12_1 = make_layer_group(26,26,32,12,          // in_c  = 384
       26,26,32,8,            // out_c = 256
       LEAKY,NONE,PW,2);
-  layer_group group_13 = make_layer_group(26,26,32,8,           // in_c  = 256    1x1 畳み込み
+  layer_group group_13 = make_layer_group(26,26,32,8,           // in_c  = 256    1x1 conv
       26,26,32,8,            // out_c = 255
       LINEAR,YOLO,PW,2);
 
@@ -877,7 +868,7 @@ int main()
   group_11.inputs = group_8.outputs;
   forward_layer_group(group_11);
 
-  // concatにあたる層だと思われる.
+  // concat
   memcpy(group_12_0.inputs, group_11.outputs, group_11.output_size*group_11.output_fold_factor*sizeof(short));
   memcpy(&group_12_0.inputs[group_11.output_size*group_11.output_fold_factor], group_4_1.outputs, group_4_1.output_size*group_4_1.output_fold_factor*sizeof(short));
 
