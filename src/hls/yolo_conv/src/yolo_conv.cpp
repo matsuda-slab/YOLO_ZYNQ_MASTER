@@ -243,13 +243,8 @@ KERNER_NUM_LOOP:
                 }
               }
             }
-
-
           }
         }
-
-
-
 
         //read data from the internal FIFO, and write to the output
         // conv_row/col_count が 0と0のときは, まだ畳み込みする領域じゃないとき

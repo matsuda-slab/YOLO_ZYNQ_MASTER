@@ -42,7 +42,9 @@ dim1:出力チャネル次元, dim2:入力チャネル次元
 */ 
   local_weight_type local_mem_group[MAX_KERNEL_NUM][MAX_INPUT_CH];  // 1x1 が 32x32個
   // SCRIPT_START P_mem DO NOT EDIT OR DELETE THIS LINE
-#pragma HLS ARRAY_PARTITION variable=local_mem_group block factor=8 dim=1
+//#pragma HLS ARRAY_PARTITION variable=local_mem_group block factor=8 dim=1
+#pragma HLS ARRAY_PARTITION variable=local_mem_group complete dim=1
+#pragma HLS ARRAY_PARTITION variable=local_mem_group block factor=4 dim=2
   // SCRIPT_END P_mem DO NOT EDIT OR DELETE THIS LINE
   //#pragma HLS ARRAY_PARTITION variable=local_mem_group complete dim=3         // 3x3の配列を, 9個バラバラにする (9並列?)
 
@@ -89,7 +91,8 @@ COL_LOOP:
 DO_PRAGMA(HLS LOOP_TRIPCOUNT min=COL_TRIP max=COL_TRIP)
 //#pragma HLS LOOP_TRIPCOUNT min=416 max=416
 FOLD_LOOP:
-      for(int input_ch_idx = 0; input_ch_idx < fold_input_ch; input_ch_idx++)
+      //for(int input_ch_idx = 0; input_ch_idx < fold_input_ch; input_ch_idx++)
+      for(int input_ch_idx = 0; input_ch_idx < fold_output_ch; input_ch_idx++)
       {
 #pragma HLS PIPELINE
 DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
@@ -102,7 +105,8 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
         if(row_idx != input_h)
         {
           //stream input
-          curr_input = inStream.read();
+          if(input_ch_idx < fold_input_ch)
+            curr_input = inStream.read();
 
           //copy data to allow parallelism
 
@@ -120,14 +124,22 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
             //std::cout << "data[0] :" << curr_input.data.sub_data_0 << std::endl;
             //core of conv, macc
             /* kernel_window : 入力データ, local_mem_group : 重みデータ */
-            sub0_val_output = curr_input.data.sub_data_0 * local_mem_group[kernel_idx][4*input_ch_idx].data;
-            sub1_val_output = curr_input.data.sub_data_1 * local_mem_group[kernel_idx][4*input_ch_idx+1].data;
-            sub2_val_output = curr_input.data.sub_data_2 * local_mem_group[kernel_idx][4*input_ch_idx+2].data;
-            if(input_ch == 3) {
-              sub3_val_output = 0;
+            if(input_ch_idx < fold_input_ch) {
+              sub0_val_output = curr_input.data.sub_data_0 * local_mem_group[kernel_idx][4*input_ch_idx].data;
+              sub1_val_output = curr_input.data.sub_data_1 * local_mem_group[kernel_idx][4*input_ch_idx+1].data;
+              sub2_val_output = curr_input.data.sub_data_2 * local_mem_group[kernel_idx][4*input_ch_idx+2].data;
+              if(input_ch == 3) {
+                sub3_val_output = 0;
+              }
+              else {
+                sub3_val_output = curr_input.data.sub_data_3 * local_mem_group[kernel_idx][4*input_ch_idx+3].data;
+              }
             }
             else {
-              sub3_val_output = curr_input.data.sub_data_3 * local_mem_group[kernel_idx][4*input_ch_idx+3].data;
+              sub0_val_output = 0;
+              sub1_val_output = 0;
+              sub2_val_output = 0;
+              sub3_val_output = 0;
             }
 
             /* DEBUG */
@@ -139,9 +151,12 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
                 input_ch_idx, val_output[kernel_idx]);
 
             //accumulate for number of input channels
+            //if(input_ch_idx == fold_input_ch-1)
             if(input_ch_idx == fold_input_ch-1)
               // 入力チャネルを4チャネルずつ処理していったときの, 最後の4チャネルのときにここに入る
             {
+              // このifで，有効なval_outputだけ出力するようにしてる
+              // このifがないと，16チャネルしかカーネルがないのに，17チャネル目として意味不明な値が出力される的なことが起こる
               if(kernel_idx < output_ch)
               {
                 ap_fixed<16, 8, AP_RND_CONV, AP_SAT> output_rec = val_output[kernel_idx];    // 32bit -> 16bit
@@ -157,19 +172,18 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
             }
           }
 
-
         }
-
 
         //read data from the internal FIFO, and write to the output
         //printf("%d,%d\n",row_idx,col_idx);
         ap_uint<1> last;
         // 入力画素が最後の座標かつ, 最後の4チャネルの入力のとき last=1
-        if((row_idx==input_h) && (input_ch_idx==fold_input_ch-1))
+        if((row_idx == input_h-1) && (col_idx == input_h-1) && (input_ch_idx == fold_input_ch-1))
           last = 1;
         else
           last = 0;
-        out_stream_merge(out_stream_group, outStream, input_ch_idx, curr_input, last, output_ch, fold_output_ch);
+        out_stream_merge(out_stream_group, outStream, input_ch_idx, curr_input, last, output_ch);
+        //out_stream_merge(out_stream_group, outStream, input_ch_idx, curr_input, last, output_ch, fold_output_ch);
 
       }
     }
@@ -184,7 +198,7 @@ fp_mid_type post_process(fp_mid_type sub0_val_output, fp_mid_type sub1_val_outpu
     int input_ch_idx, fp_mid_type val_output)
 {
   fp_mid_type sub_add0, sub_add1, sub_add2;
-  
+
   //fp_data_type biased_output=0,activated_output=0;
   // 最初のチャネルのときに val_outputを初期化
   if(input_ch_idx == 0)
@@ -213,54 +227,77 @@ void write_output(fp_data_type val_output,  yolo_inter_stream &out_stream)
   out_stream.write(val_output);
 }
 
-void out_stream_merge(yolo_inter_stream out_stream_group[MAX_KERNEL_NUM], yolo_quad_stream &outStream, int input_ch_idx, quad_fp_side_channel curr_input, ap_uint<1> last, int output_ch, int fold_output_ch )
+void out_stream_merge(yolo_inter_stream out_stream_group[MAX_KERNEL_NUM], yolo_quad_stream &outStream, int input_ch_idx, quad_fp_side_channel curr_input, ap_uint<1> last, int output_ch)
+//void out_stream_merge(yolo_inter_stream out_stream_group[MAX_KERNEL_NUM], yolo_quad_stream &outStream, int input_ch_idx, quad_fp_side_channel curr_input, ap_uint<1> last, int output_ch, int fold_output_ch )
 {
 
   // kind of rotation transmission
   // for every INPUT_CHANNEL inputs, get KERNEL_NUM outputs
   // the transmission is distributed evenly for efficient pipeline
-STREAM_TX_LOOP:
-  for(int i = 0; i < STREAM_TX_SIZE; i++)     // STREAM_TX_SIZE : 6
+  if(!(out_stream_group[4*input_ch_idx].empty()))
   {
-    int kernel_idx = i + input_ch_idx*STREAM_TX_SIZE;
-    if(4*kernel_idx < MAX_KERNEL_NUM) {
-      if(!(out_stream_group[4*kernel_idx].empty()))
-      {
-        quad_fp_side_channel curr_output;
+    //std::cout << "input_ch_idx : " << input_ch_idx << std::endl;
+    quad_fp_side_channel curr_output;
 
-        curr_output.data.sub_data_0 = out_stream_group[4*kernel_idx].read();
-        curr_output.data.sub_data_1 = out_stream_group[4*kernel_idx+1].read();
-        curr_output.data.sub_data_2 = out_stream_group[4*kernel_idx+2].read();
+    curr_output.data.sub_data_0 = out_stream_group[4*input_ch_idx].read();
+    curr_output.data.sub_data_1 = out_stream_group[4*input_ch_idx+1].read();
+    curr_output.data.sub_data_2 = out_stream_group[4*input_ch_idx+2].read();
 
-
-        if(!(out_stream_group[4*kernel_idx+3].empty()))
-        {
-          curr_output.data.sub_data_3 = out_stream_group[4*kernel_idx+3].read();
-        }
-        else
-        {
-          curr_output.data.sub_data_3 = 0;
-        }
-
-        // inputをそのままoutputにしていいのか? 遅延があるのでは?
-        curr_output.keep = curr_input.keep;
-        curr_output.strb = curr_input.strb;
-        curr_output.user = curr_input.user;
-
-        // 最後の出力チャネルグループのとき
-        if(kernel_idx == fold_output_ch-1)
-          curr_output.last = last;
-        else
-          curr_output.last = 0;
-
-        curr_output.id = curr_input.id;
-        curr_output.dest = curr_input.dest;
-        outStream.write(curr_output);
-        // outStream には, 入力32チャネル分の積和結果が, 出力チャネル4チャネル分ずつ入っていく
-        // 32チャネル分 x 4
-
-      }
+    if(!(out_stream_group[4*input_ch_idx+3].empty()))
+    {
+      curr_output.data.sub_data_3 = out_stream_group[4*input_ch_idx+3].read();
     }
+    else
+    {
+      curr_output.data.sub_data_3 = 0;
+    }
+
+    // inputをそのままoutputにしていいのか? 遅延があるのでは?
+    curr_output.keep = curr_input.keep;
+    curr_output.strb = curr_input.strb;
+    curr_output.user = curr_input.user;
+
+    curr_output.last = last;
+
+    curr_output.id = curr_input.id;
+    curr_output.dest = curr_input.dest;
+    outStream.write(curr_output);
+    // outStream には, 入力32チャネル分の積和結果が, 出力チャネル4チャネル分ずつ入っていく
+    // 32チャネル分 x 4
+
   }
+
+  /*
+     if(!(out_stream_group[4*kernel_idx].empty())) {
+     quad_fp_side_channel curr_output[8];
+     for(int i = 0; i < MAX_KERNEL_NUM/4; i++) {
+     if(output_ch < i) {
+     curr_output[i].data.sub_data_0 = 0;
+     curr_output[i].data.sub_data_1 = 0;
+     curr_output[i].data.sub_data_2 = 0;
+     curr_output[i].data.sub_data_3 = 0;
+     }
+     else {
+     curr_output[i].data.sub_data_0 = out_stream_group[4*i].read();
+     curr_output[i].data.sub_data_1 = out_stream_group[4*i+1].read();
+     curr_output[i].data.sub_data_2 = out_stream_group[4*i+2].read();
+     if(out_stream_group[4*i+3].empty()) {
+     curr_output[i].data.sub_data_3 = 0;
+     }
+     else {
+     curr_output[i].data.sub_data_3 = out_stream_group[4*i+3].read();
+     }
+     }
+     curr_output[i].keep = curr_input.keep;
+     curr_output[i].strb = curr_input.strb;
+     curr_output[i].user = curr_input.user;
+     curr_output[i].id   = curr_input.id;
+     curr_output[i].dest = curr_input.dest;
+
+     curr_output[i].last = last;
+     outStream[i].write(curr_output[i]);
+     }
+     }
+     */
 
 }

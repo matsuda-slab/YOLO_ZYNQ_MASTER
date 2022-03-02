@@ -5,7 +5,6 @@ set PART_NAME xc7z020clg400-1
 set CLOCK_PIRIOD 7.5
 
 set SRC_FILES {
-  src/yolo_conv_dw.cpp
   src/yolo_conv_dw.h
   src/yolo_fp.h
   src/yolo_stream.h

@@ -91,7 +91,8 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
         curr_output.strb = curr_input_a.strb;
         curr_output.user = curr_input_a.user;
 
-        if((input_ch_idx == MAX_KERNEL_NUM/4-1)   // つまりinput_ch_idx が 7 になった かつ 最後の画素
+        //if((input_ch_idx == MAX_KERNEL_NUM/4-1)   // つまりinput_ch_idx が 7 になった かつ 最後の画素
+        if((input_ch_idx == fold_input_ch-1)   // つまりinput_ch_idx が 最大値 になった かつ 最後の画素
             &&(col_idx == input_w-1)
             &&(row_idx == input_h-1))
           curr_output.last = 1;

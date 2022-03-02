@@ -23,10 +23,16 @@ void yolo_conv_dw_top(yolo_quad_stream &inStream, yolo_quad_stream &outStream,
 #pragma HLS INTERFACE axis register both port=outStream
 #pragma HLS INTERFACE axis register both port=inStream
 
-  //yolo_inter_stream out_stream_group[MAX_KERNEL_NUM];   // 16bit x 32個
+  yolo_inter_stream out_stream_group_0[MAX_KERNEL_NUM/4];   // 16bit x 32個
+  yolo_inter_stream out_stream_group_1[MAX_KERNEL_NUM/4];   // 16bit x 32個
+  yolo_inter_stream out_stream_group_2[MAX_KERNEL_NUM/4];   // 16bit x 32個
+  yolo_inter_stream out_stream_group_3[MAX_KERNEL_NUM/4];   // 16bit x 32個
   //yolo_inter_stream out_stream_group[4];   // 16bit x 4個
-//#pragma HLS ARRAY_PARTITION variable=out_stream_group complete dim=1  // 16bit x 32 が分解されて 32並列
-//#pragma HLS STREAM variable=out_stream_group depth=2 dim=1
+//#pragma HLS ARRAY_PARTITION variable=out_stream_group block factor=4 dim=1  // 16bit x 32 が分解されて 32並列
+#pragma HLS STREAM variable=out_stream_group_0 depth=2 dim=1
+#pragma HLS STREAM variable=out_stream_group_1 depth=2 dim=1
+#pragma HLS STREAM variable=out_stream_group_2 depth=2 dim=1
+#pragma HLS STREAM variable=out_stream_group_3 depth=2 dim=1
 
   /*
      4並列で処理するためにラインバッファを4つに分けていると思われる
@@ -136,7 +142,10 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
         }
 
 
-        // このifの意味がわからん (input_hは416とかになる...)
+        // 最後に，1座標分だけ，計算はしないけど出力だけするタイミングがある
+        // ((2, 2)で最初の出力が決まるが, 最初に出力されるのは(2, 3)だから．
+        // なので, 最後のパディングの行+1の行は畳み込みとかはせずに，
+        // FIFOに残ったデータを出してしまう行
         if(row_idx != input_h)
         {
           if(((row_idx == 0)||
@@ -201,22 +210,57 @@ DO_PRAGMA(HLS LOOP_TRIPCOUNT min=FOLD max=FOLD)
 
             // not write to internal FIFO as input_ch == output_ch
             // write current calculation result to output stream
-            curr_output.data.sub_data_0 = output_rec_0;
-            curr_output.data.sub_data_1 = output_rec_1;
-            curr_output.data.sub_data_2 = output_rec_2;
-            curr_output.data.sub_data_3 = output_rec_3;
+            //curr_output.data.sub_data_0 = output_rec_0;
+            //curr_output.data.sub_data_1 = output_rec_1;
+            //curr_output.data.sub_data_2 = output_rec_2;
+            //curr_output.data.sub_data_3 = output_rec_3;
             
+            out_stream_group_0[input_ch_idx].write(output_rec_0);
+            out_stream_group_1[input_ch_idx].write(output_rec_1);
+            out_stream_group_2[input_ch_idx].write(output_rec_2);
+            out_stream_group_3[input_ch_idx].write(output_rec_3);
+            //curr_output.keep = curr_input.keep;
+            //curr_output.strb = curr_input.strb;
+            //curr_output.user = curr_input.user;
+            //if((row_idx == input_h) && (input_ch_idx == fold_input_ch-1)) {
+            //  curr_output.last = 1;
+            //  std::cout << "last!!!" << std::endl;
+            //}
+            //else {
+            //  curr_output.last = 0;
+            //}
+            //curr_output.id = curr_input.id;
+            //curr_output.dest = curr_input.dest;
+            //outStream.write(curr_output);
+          }
+        }
+
+        if(!((conv_row_count == 0)&&(conv_col_count == 0)))
+        {
+          if (!(out_stream_group_0[input_ch_idx].empty())) {
+            curr_output.data.sub_data_0 = out_stream_group_0[input_ch_idx].read();
+            curr_output.data.sub_data_1 = out_stream_group_1[input_ch_idx].read();
+            curr_output.data.sub_data_2 = out_stream_group_2[input_ch_idx].read();
+            curr_output.data.sub_data_3 = out_stream_group_3[input_ch_idx].read();
+
+            //std::cout << "output 0: " << curr_output.data.sub_data_0 << std::endl;
+            //std::cout << "output 1: " << curr_output.data.sub_data_1 << std::endl;
+            //std::cout << "output 2: " << curr_output.data.sub_data_2 << std::endl;
+            //std::cout << "output 3: " << curr_output.data.sub_data_3 << std::endl;
+
             curr_output.keep = curr_input.keep;
             curr_output.strb = curr_input.strb;
             curr_output.user = curr_input.user;
+            curr_output.id   = curr_input.id;
+            curr_output.dest = curr_input.dest;
+            // 入力画素が最後の座標かつ, 最後の4チャネルの入力のとき last=1
+            //std::cout << "row_idx: " << row_idx << ", col_idx: " << col_idx << "input_ch_idx: " << input_ch_idx << std::endl;
             if((row_idx == input_h) && (input_ch_idx == fold_input_ch-1)) {
               curr_output.last = 1;
             }
             else {
               curr_output.last = 0;
             }
-            curr_output.id = curr_input.id;
-            curr_output.dest = curr_input.dest;
             outStream.write(curr_output);
           }
         }
@@ -248,6 +292,24 @@ window_type slide_window(int conv_count, line_buff_type *line_buff)
       kernel_window.insert(val, win_row, win_col);
     }
   }
+  //fp_data_type val_0_0 = (fp_data_type)line_buff->getval(0, conv_count);
+  //kernel_window.insert(val_0_0, 0, 0);
+  //fp_data_type val_0_1 = (fp_data_type)line_buff->getval(0, conv_count+1);
+  //kernel_window.insert(val_0_1, 0, 1);
+  //fp_data_type val_0_2 = (fp_data_type)line_buff->getval(0, conv_count+2);
+  //kernel_window.insert(val_0_2, 0, 2);
+  //fp_data_type val_1_0 = (fp_data_type)line_buff->getval(1, conv_count);
+  //kernel_window.insert(val_1_0, 1, 0);
+  //fp_data_type val_1_1 = (fp_data_type)line_buff->getval(1, conv_count+1);
+  //kernel_window.insert(val_1_1, 1, 1);
+  //fp_data_type val_1_2 = (fp_data_type)line_buff->getval(1, conv_count+2);
+  //kernel_window.insert(val_1_2, 1, 2);
+  //fp_data_type val_2_0 = (fp_data_type)line_buff->getval(2, conv_count);
+  //kernel_window.insert(val_2_0, 2, 0);
+  //fp_data_type val_2_1 = (fp_data_type)line_buff->getval(2, conv_count+1);
+  //kernel_window.insert(val_2_1, 2, 1);
+  //fp_data_type val_2_2 = (fp_data_type)line_buff->getval(2, conv_count+2);
+  //kernel_window.insert(val_2_2, 2, 2);
 
   return kernel_window;
 }
@@ -265,6 +327,33 @@ fp_mid_type window_macc(window_type window, local_weight_type weight)
       sum += val_in * weight.data[win_row*3+win_col];
     }
   }
+
+  //fp_data_type val_in0_0 = window.getval(0, 0);
+  //fp_data_type val_in0_1 = window.getval(0, 1);
+  //fp_data_type val_in0_2 = window.getval(0, 2);
+  //fp_data_type val_in1_0 = window.getval(1, 0);
+  //fp_data_type val_in1_1 = window.getval(1, 1);
+  //fp_data_type val_in1_2 = window.getval(1, 2);
+  //fp_data_type val_in2_0 = window.getval(2, 0);
+  //fp_data_type val_in2_1 = window.getval(2, 1);
+  //fp_data_type val_in2_2 = window.getval(2, 2);
+
+  //fp_mid_type mul_0_0 = val_in0_0 * weight.data[0];
+  //fp_mid_type mul_0_1 = val_in0_1 * weight.data[1];
+  //fp_mid_type mul_0_2 = val_in0_2 * weight.data[2];
+  //fp_mid_type mul_1_0 = val_in1_0 * weight.data[3];
+  //fp_mid_type mul_1_1 = val_in1_1 * weight.data[4];
+  //fp_mid_type mul_1_2 = val_in1_2 * weight.data[5];
+  //fp_mid_type mul_2_0 = val_in2_0 * weight.data[6];
+  //fp_mid_type mul_2_1 = val_in2_1 * weight.data[7];
+  //fp_mid_type mul_2_2 = val_in2_2 * weight.data[8];
+
+  //fp_mid_type sum_sub_0 = mul_0_0 + mul_0_1 + mul_0_2;
+  //fp_mid_type sum_sub_1 = mul_1_0 + mul_1_1 + mul_1_2;
+  //fp_mid_type sum_sub_2 = mul_2_0 + mul_2_1 + mul_2_2;
+
+  //sum = sum_sub_0 + sum_sub_1 + sum_sub_2;
+
   return sum;
 }
 

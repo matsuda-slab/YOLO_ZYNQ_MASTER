@@ -92,21 +92,52 @@ XAxis_Switch axis_switch_0, axis_switch_1, axis_switch_2, axis_switch_3;
 XAxis_Switch_Config *axis_switch_cfg_0, *axis_switch_cfg_1, *axis_switch_cfg_2, *axis_switch_cfg_3;
 
 
-//#include "custom_headers/car/group_0_weight.h"
-//#include "custom_headers/car/group_1_weight.h"
-//#include "custom_headers/car/group_2_weight.h"
-//#include "custom_headers/car/group_3_weight_it.h"
-//#include "custom_headers/car/group_4_weight_it.h"
-//#include "custom_headers/car/group_6_weight_it.h"
-//#include "custom_headers/car/group_7_weight_it.h"
-//#include "custom_headers/car/group_8_weight_it.h"
-//#include "custom_headers/car/group_9_weight_it.h"
-//#include "custom_headers/car/group_10_weight_it.h"
-//#include "custom_headers/car/group_11_weight_it.h"
-//#include "custom_headers/car/group_12_weight_it.h"
-//#include "custom_headers/car/group_13_weight_it.h"
+#include "custom_headers/group_0_0_weights.h"
+#include "custom_headers/group_0_0_biases.h"
+#include "custom_headers/group_0_1_weights.h"
+#include "custom_headers/group_0_1_biases.h"
+#include "custom_headers/group_1_0_weights.h"
+#include "custom_headers/group_1_0_biases.h"
+#include "custom_headers/group_1_1_weights.h"
+#include "custom_headers/group_1_1_biases.h"
+#include "custom_headers/group_2_0_weights.h"
+#include "custom_headers/group_2_0_biases.h"
+#include "custom_headers/group_2_1_weights.h"
+#include "custom_headers/group_2_1_biases.h"
+#include "custom_headers/group_3_0_weights.h"
+#include "custom_headers/group_3_0_biases.h"
+#include "custom_headers/group_3_1_weights.h"
+#include "custom_headers/group_3_1_biases.h"
+#include "custom_headers/group_4_0_weights.h"
+#include "custom_headers/group_4_0_biases.h"
+#include "custom_headers/group_4_1_weights.h"
+#include "custom_headers/group_4_1_biases.h"
+#include "custom_headers/group_6_0_weights.h"
+#include "custom_headers/group_6_0_biases.h"
+#include "custom_headers/group_6_1_weights.h"
+#include "custom_headers/group_6_1_biases.h"
+#include "custom_headers/group_7_0_weights.h"
+#include "custom_headers/group_7_0_biases.h"
+#include "custom_headers/group_7_1_weights.h"
+#include "custom_headers/group_7_1_biases.h"
+#include "custom_headers/group_8_weights.h"
+#include "custom_headers/group_8_biases.h"
+#include "custom_headers/group_9_0_weights.h"
+#include "custom_headers/group_9_0_biases.h"
+#include "custom_headers/group_9_1_weights.h"
+#include "custom_headers/group_9_1_biases.h"
+#include "custom_headers/group_10_weights.h"
+#include "custom_headers/group_10_biases.h"
+#include "custom_headers/group_11_weights.h"
+#include "custom_headers/group_11_biases.h"
+#include "custom_headers/group_12_0_weights.h"
+#include "custom_headers/group_12_0_biases.h"
+#include "custom_headers/group_12_1_weights.h"
+#include "custom_headers/group_12_1_biases.h"
+#include "custom_headers/group_13_weights.h"
+#include "custom_headers/group_13_biases.h"
 
-#include "origin_headers/group_0_input.h"
+#include "custom_headers/group_0_0_input.h"
 //#include "group_13_output.h"
 
 void init_yolo_conv_dw()
@@ -728,49 +759,50 @@ int main()
   short* layer_output_hls;
   //group_0.inputs = resized_img;
   //group_0.inputs = input_img;
+  group_0_0.inputs = layer_input;
 
-  group_0_0.weights = group_0_dw_weights;
-  group_0_0.biases = group_0_dw_biases;
-  group_0_1.weights = group_0_pw_weights;
-  group_0_1.biases = group_0_pw_biases;
-  group_1_0.weights = group_1_dw_weights;
-  group_1_0.biases = group_1_dw_biases;
-  group_1_1.weights = group_1_pw_weights;
-  group_1_1.biases = group_1_pw_biases;
-  group_2_0.weights = group_2_dw_weights;
-  group_2_0.biases = group_2_dw_biases;
-  group_2_1.weights = group_2_pw_weights;
-  group_2_1.biases = group_2_pw_biases;
-  group_3_0.weights = group_3_dw_weights;
-  group_3_0.biases = group_3_dw_biases;
-  group_3_1.weights = group_3_pw_weights;
-  group_3_1.biases = group_3_pw_biases;
-  group_4_0.weights = group_4_dw_weights;
-  group_4_0.biases = group_4_dw_biases;
-  group_4_1.weights = group_4_pw_weights;
-  group_4_1.biases = group_4_pw_biases;
-  group_6_0.weights = group_6_dw_weights;
-  group_6_0.biases = group_6_dw_biases;
-  group_6_1.weights = group_6_pw_weights;
-  group_6_1.biases = group_6_pw_biases;
-  group_7_0.weights = group_7_dw_weights;
-  group_7_0.biases = group_7_dw_biases;
-  group_7_1.weights = group_7_pw_weights;
-  group_7_1.biases = group_7_pw_biases;
+  group_0_0.weights = group_0_0_weights;
+  group_0_0.biases = group_0_0_biases;
+  group_0_1.weights = group_0_1_weights;
+  group_0_1.biases = group_0_1_biases;
+  group_1_0.weights = group_1_0_weights;
+  group_1_0.biases = group_1_0_biases;
+  group_1_1.weights = group_1_1_weights;
+  group_1_1.biases = group_1_1_biases;
+  group_2_0.weights = group_2_0_weights;
+  group_2_0.biases = group_2_0_biases;
+  group_2_1.weights = group_2_1_weights;
+  group_2_1.biases = group_2_1_biases;
+  group_3_0.weights = group_3_0_weights;
+  group_3_0.biases = group_3_0_biases;
+  group_3_1.weights = group_3_1_weights;
+  group_3_1.biases = group_3_1_biases;
+  group_4_0.weights = group_4_0_weights;
+  group_4_0.biases = group_4_0_biases;
+  group_4_1.weights = group_4_1_weights;
+  group_4_1.biases = group_4_1_biases;
+  group_6_0.weights = group_6_0_weights;
+  group_6_0.biases = group_6_0_biases;
+  group_6_1.weights = group_6_1_weights;
+  group_6_1.biases = group_6_1_biases;
+  group_7_0.weights = group_7_0_weights;
+  group_7_0.biases = group_7_0_biases;
+  group_7_1.weights = group_7_1_weights;
+  group_7_1.biases = group_7_1_biases;
   group_8.weights = group_8_weights;
   group_8.biases = group_8_biases;
-  group_9_0.weights = group_9_dw_weights;
-  group_9_0.biases = group_9_dw_biases;
-  group_9_1.weights = group_9_pw_weights;
-  group_9_1.biases = group_9_pw_biases;
+  group_9_0.weights = group_9_0_weights;
+  group_9_0.biases = group_9_0_biases;
+  group_9_1.weights = group_9_1_weights;
+  group_9_1.biases = group_9_1_biases;
   group_10.weights = group_10_weights;
   group_10.biases = group_10_biases;
   group_11.weights = group_11_weights;
   group_11.biases = group_11_biases;
-  group_12_0.weights = group_12_dw_weights;
-  group_12_0.biases = group_12_dw_biases;
-  group_12_1.weights = group_12_pw_weights;
-  group_12_1.biases = group_12_pw_biases;
+  group_12_0.weights = group_12_0_weights;
+  group_12_0.biases = group_12_0_biases;
+  group_12_1.weights = group_12_1_weights;
+  group_12_1.biases = group_12_1_biases;
   group_13.weights = group_13_weights;
   group_13.biases = group_13_biases;
 

@@ -1,7 +1,7 @@
 open_project -reset yolo_acc_prj
 set_top yolo_acc_top
 add_files src/yolo_fp.h
-add_files src/yolo_acc.cpp
+add_files src/yolo_acc.cpp -cflags "-DROW_TRIP=416 -DCOL_TRIP=416 -DFOLD=1"
 add_files src/yolo_acc.h
 add_files src/yolo_stream.h
 add_files -tb tb/layer_input.dat
@@ -16,3 +16,4 @@ csim_design
 csynth_design
 cosim_design
 export_design -rtl verilog -format ip_catalog
+exit

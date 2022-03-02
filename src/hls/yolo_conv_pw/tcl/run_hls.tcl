@@ -7,6 +7,7 @@ set_top $TOP_MODULE
 
 # File setting
 add_files $SRC_FILES
+add_files src/yolo_conv_pw.cpp -cflags "-DOC_TRIP=16 -DFOLD=1 -DROW_TRIP=416 -DCOL_TRIP=416"
 add_files -tb $TB_FILES
 
 # Other setting
@@ -22,6 +23,7 @@ config_export -format ip_catalog -rtl verilog
 
 csim_design
 csynth_design
-cosim_design -setup -trace_level all -compiled_library_dir "/home/cad/xilinx-vivado-2018.3/libs/Xcelium_18.09.001" -tool xcelium
+#cosim_design -setup -trace_level all -compiled_library_dir "/home/cad/xilinx-vivado-2018.3/libs/Xcelium_18.09.001" -tool xcelium
+cosim_design
 export_design -rtl verilog -format ip_catalog
 exit

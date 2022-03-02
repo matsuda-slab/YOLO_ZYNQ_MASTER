@@ -5,7 +5,7 @@ import numpy as np
 
 WIDTH    = 16
 HEIGHT   = 16
-CHANNELS = 16
+CHANNELS = 3
 
 HEADER_FILE = "tb_sample.h"
 
@@ -37,12 +37,12 @@ def main():
     weight = weight.detach().numpy().copy()
     output = output.detach().numpy().copy()
 
-    np.set_printoptions(threshold=np.inf)
-    print("output: ", output)
+    #np.set_printoptions(threshold=np.inf)
+    #print("output: ", output)
 
-    input_interleaved = interleave(input)
-    output_interleaved = interleave(output)
-    print("output_interleaved: ", output_interleaved)
+    input_interleaved = input_interleave(input)
+    output_interleaved = output_interleave(output)
+    #print("output_interleaved: ", output_interleaved)
 
     if os.path.exists(HEADER_FILE):
         os.remove(HEADER_FILE)
@@ -51,7 +51,30 @@ def main():
     make_header(HEADER_FILE, weight, "tb_weight")
     make_header(HEADER_FILE, output_interleaved, "tb_output")
 
-def interleave(input):
+def output_interleave(input):
+    if input.shape[1] == 3:
+        input_interleaved = np.zeros(input.shape[2] * input.shape[3] * 4)
+        pix_cnt = 0
+        for h in range(input.shape[2]):
+            for w in range(input.shape[3]):
+                for c in range(input.shape[1]):
+                    input_interleaved[pix_cnt] = input[0][c][h][w]
+                    pix_cnt += 1
+                input_interleaved[pix_cnt] = 0
+                pix_cnt += 1
+
+    else:
+        input_interleaved = np.zeros(input.shape[2] * input.shape[3] * input.shape[1])
+        pix_cnt = 0
+        for h in range(input.shape[2]):
+            for w in range(input.shape[3]):
+                for c in range(input.shape[1]):
+                    input_interleaved[pix_cnt] = input[0][c][h][w]
+                    pix_cnt += 1
+
+    return input_interleaved
+
+def input_interleave(input):
     input_interleaved = np.zeros(input.shape[2] * input.shape[3] * input.shape[1])
     pix_cnt = 0
     for h in range(input.shape[2]):

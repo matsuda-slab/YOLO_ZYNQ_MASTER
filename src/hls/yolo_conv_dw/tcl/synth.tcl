@@ -7,6 +7,7 @@ set_top $TOP_MODULE
 
 # File setting
 add_files $SRC_FILES
+add_files src/yolo_conv_dw.cpp -cflags "-DOC_TRIP=32 -DROW_TRIP=107 -DCOL_TRIP=106 -DFOLD=8"
 add_files -tb $TB_FILES
 
 # Other setting

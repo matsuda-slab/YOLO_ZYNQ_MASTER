@@ -6,11 +6,11 @@
 
 #define KERNEL_DIM 3
 #define PAD 1
-#define INPUT_CHANNEL 16
+#define INPUT_CHANNEL 3
 #define INPUT_WIDTH (16+2*PAD)
 #define INPUT_HEIGHT (16+2*PAD)
 #define REAL_INPUT_HEIGHT (16+2*PAD)
-#define OUTPUT_CHANNEL 16
+#define OUTPUT_CHANNEL INPUT_CHANNEL
 #define OUTPUT_WIDTH 16
 #define OUTPUT_HEIGHT 16
 
@@ -20,7 +20,8 @@ int main()
 
 	bool flag = false;
 
-	static fp_data_type output_data[OUTPUT_WIDTH*OUTPUT_HEIGHT*OUTPUT_CHANNEL];
+	//static fp_data_type output_data[OUTPUT_WIDTH*OUTPUT_HEIGHT*OUTPUT_CHANNEL];
+	static fp_data_type output_data[OUTPUT_WIDTH*OUTPUT_HEIGHT*4];
   
 	int k = 0;
 
@@ -105,6 +106,11 @@ int main()
         curr_input.data.sub_data_1 = *sub1_p;
         curr_input.data.sub_data_2 = *sub2_p;
         curr_input.data.sub_data_3 = *sub3_p;
+      
+        //std::cout << "input 0: " << curr_input.data.sub_data_0 << std::endl;
+        //std::cout << "input 1: " << curr_input.data.sub_data_1 << std::endl;
+        //std::cout << "input 2: " << curr_input.data.sub_data_2 << std::endl;
+        //std::cout << "input 3: " << curr_input.data.sub_data_3 << std::endl;
 
         curr_input.keep = 1;
         curr_input.strb = 1;
@@ -126,26 +132,35 @@ int main()
 
   for(int pix_idx = 0; pix_idx < (OUTPUT_WIDTH*OUTPUT_HEIGHT); pix_idx++)
   {
-    for(int ch_idx = 0; ch_idx < (OUTPUT_CHANNEL)/4; ch_idx++)
+    for(int ch_idx = 0; ch_idx < (OUTPUT_CHANNEL+3)/4; ch_idx++)
     {
       quad_fp_side_channel curr_output;
       outputStream.read(curr_output);
 
-      output_data[4*(pix_idx*(OUTPUT_CHANNEL)/4 + ch_idx)] = curr_output.data.sub_data_0;
-      output_data[4*(pix_idx*(OUTPUT_CHANNEL)/4 + ch_idx) + 1] = curr_output.data.sub_data_1;
-      output_data[4*(pix_idx*(OUTPUT_CHANNEL)/4 + ch_idx) + 2] = curr_output.data.sub_data_2;
-      output_data[4*(pix_idx*(OUTPUT_CHANNEL)/4 + ch_idx) + 3] = curr_output.data.sub_data_3;
+      output_data[4*(pix_idx*((OUTPUT_CHANNEL+3)/4) + ch_idx)] = curr_output.data.sub_data_0;
+      output_data[4*(pix_idx*((OUTPUT_CHANNEL+3)/4) + ch_idx) + 1] = curr_output.data.sub_data_1;
+      output_data[4*(pix_idx*((OUTPUT_CHANNEL+3)/4) + ch_idx) + 2] = curr_output.data.sub_data_2;
+      output_data[4*(pix_idx*((OUTPUT_CHANNEL+3)/4) + ch_idx) + 3] = curr_output.data.sub_data_3;
+
+      //printf("idx: %d\n", 4*(pix_idx*(OUTPUT_CHANNEL+3)/4 + ch_idx));
+      //printf("pix_idx: %d\n", pix_idx);
+      //printf("ch_idx: %d\n", ch_idx);
+      //std::cout << "output0: " << output_data[4*(pix_idx*(OUTPUT_CHANNEL+3)/4 + ch_idx)] << std::endl;
+      //std::cout << "output1: " << output_data[4*(pix_idx*(OUTPUT_CHANNEL+3)/4 + ch_idx) + 1] << std::endl;
+      //std::cout << "output2: " << output_data[4*(pix_idx*(OUTPUT_CHANNEL+3)/4 + ch_idx) + 2] << std::endl;
+      //std::cout << "output3: " << output_data[4*(pix_idx*(OUTPUT_CHANNEL+3)/4 + ch_idx) + 3] << std::endl;
 
       /* DEBUG */
       //std::cout << "curr_output[0]: " << curr_output.data.sub_data_0 << std::endl;
 
       if(curr_output.last == 1)
-        printf("%d\n",pix_idx*(OUTPUT_CHANNEL)/4 + ch_idx);
+        printf("%d\n", pix_idx*(OUTPUT_CHANNEL+3)/4 + ch_idx);
     }
   }
 
   short *ptr = (short *)&output_data[0];
-  for(int i = 0; i < OUTPUT_WIDTH*OUTPUT_HEIGHT*OUTPUT_CHANNEL; i++)
+  //for(int i = 0; i < OUTPUT_WIDTH*OUTPUT_HEIGHT*OUTPUT_CHANNEL; i++)
+  for(int i = 0; i < OUTPUT_WIDTH*OUTPUT_HEIGHT*4; i++)
   {
     if(abs((short)(tb_output[i] * 256) - ptr[i]) > 5)
     {

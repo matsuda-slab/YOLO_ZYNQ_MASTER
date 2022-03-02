@@ -1,8 +1,10 @@
+set MACRO "-DROW_TRIP=416 -DCOL_TRIP=416 -DFOLD=4 -DSTRIDE_TRIP=2"
+
 open_project -reset yolo_max_pool_prj
 set_top yolo_max_pool_top
 add_files src/yolo_fp.h
 add_files src/yolo_max_pool.h
-add_files src/yolo_max_pool.cpp
+add_files src/yolo_max_pool.cpp -cflags $MACRO
 add_files src/yolo_fp.h.copy.copy
 add_files src/yolo_stream.h
 add_files -tb tb/layer_input.dat
@@ -16,3 +18,4 @@ csim_design
 csynth_design
 cosim_design
 export_design -rtl verilog -format ip_catalog
+exit
