@@ -13,9 +13,9 @@ So please switch your python environment so that torch and numpy are available,
 and set PATH to Vivado installed directory.
 
 ### 2. Synthesize and create IP
-In this directory run `make`
+In this directory run `make`.
 Some minites later, core IPs for YOLO will be created automatically.
-These IPs are in 'ip' directory.
+You will find those IPs in 'ip' directory.
 
 ### Reference
 * https://github.com/Yu-Zhewen/Tiny_YOLO_v3_ZYNQ
