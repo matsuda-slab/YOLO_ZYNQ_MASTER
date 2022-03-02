@@ -12,6 +12,7 @@ if [ ! -e $TARGET_DIR/tb/include/tb_sample.h ]; then
   (
   cd $TARGET_DIR/tb/python_sim
   python sample_gen.py
+  mkdir -p ../include
   cp tb_sample.h ../include
   )
 fi
@@ -25,6 +26,7 @@ if [ ! -e $TARGET_DIR/tb/include/conv_tb.h ]; then
   (
   cd $TARGET_DIR/tb/python_sim
   python conv.py
+  mkdir -p ../include
   cp head/conv_tb.h ../include
   )
 fi
